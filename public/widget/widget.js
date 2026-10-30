@@ -2,7 +2,7 @@
  * Mochi web chat widget. Add to any site (the dashboard gives you this exact line per bot):
  * <script src="https://YOUR-MOCHI-SERVER/widget/widget.js" data-server="https://YOUR-MOCHI-SERVER" data-bot="BOT_ID" defer></script>
  * The bot's name, avatar, color, description and greeting come from its Persona settings.
- * Optional overrides: data-title, data-color, data-greeting.
+ * Optional overrides: data-title, data-color, data-greeting, data-lang (en | pt | ja | zh; default: browser language).
  */
 (function () {
   var script = document.currentScript || document.querySelector('script[src*="widget.js"]');
@@ -12,6 +12,15 @@
   var key = "__mochiWidget_" + botId;
   if (window[key]) return;
   window[key] = true;
+
+  var T = {
+    en: { placeholder: "type a message…", sub: "usually replies in a few seconds", attached: "image attached, add a message…", hiccup: "connection hiccup, try again?", noReply: "(｡•́︿•̀｡) hmm, no reply", hi: "Hi! How can I help?", open: "Open chat", close: "Close", attach: "Attach image", send: "Send", message: "Message", powered: "powered by" },
+    pt: { placeholder: "digite uma mensagem…", sub: "costuma responder em segundos", attached: "imagem anexada, escreva algo…", hiccup: "falha na conexão, tenta de novo?", noReply: "(｡•́︿•̀｡) hmm, sem resposta", hi: "Oi! Como posso ajudar?", open: "Abrir chat", close: "Fechar", attach: "Anexar imagem", send: "Enviar", message: "Mensagem", powered: "feito com" },
+    ja: { placeholder: "メッセージを入力…", sub: "通常は数秒で返信", attached: "画像を添付しました。メッセージもどうぞ…", hiccup: "接続に失敗しました。もう一度お試しください", noReply: "(｡•́︿•̀｡) 返信がありませんでした", hi: "こんにちは！ 何かお手伝いできますか？", open: "チャットを開く", close: "閉じる", attach: "画像を添付", send: "送信", message: "メッセージ", powered: "powered by" },
+    zh: { placeholder: "输入消息…", sub: "通常几秒内回复", attached: "已添加图片，再说点什么吧…", hiccup: "网络开小差了，再试一次？", noReply: "(｡•́︿•̀｡) 嗯…没有回复", hi: "你好！有什么可以帮你？", open: "打开聊天", close: "关闭", attach: "添加图片", send: "发送", message: "消息", powered: "技术支持" },
+  };
+  var lang = (attr("data-lang") || (navigator.languages && navigator.languages[0]) || navigator.language || "en").toLowerCase().slice(0, 2);
+  var L = T[lang] || T.en;
 
   var base = server + "/api/widget" + (botId ? "/" + encodeURIComponent(botId) : "");
   var cfgUrl = server + "/api/widget/" + encodeURIComponent(botId || "default") + "/config";
@@ -31,8 +40,8 @@
       name: attr("data-title") || cfg.name || "Chat",
       avatar: cfg.avatar || "💬",
       color: attr("data-color") || cfg.color || "#ff6fae",
-      description: cfg.description || "usually replies in a few seconds",
-      greeting: attr("data-greeting") || cfg.greeting || "Hi! How can I help?",
+      description: cfg.description || L.sub,
+      greeting: attr("data-greeting") || cfg.greeting || L.hi,
     });
   });
 
@@ -65,11 +74,11 @@
       ".foot{text-align:center;font-size:10.5px;color:#a99db3;padding:0 0 8px}.foot a{color:inherit}" +
       "</style>" +
       '<div class="panel"><div class="head">' + esc(c.avatar) + "<div>" + esc(c.name) + "<small>" + esc(c.description) + "</small></div>" +
-      '<button aria-label="Close">×</button></div><div class="log"></div>' +
-      '<form><button type="button" class="icon attach" aria-label="Attach image">📎</button><input type="file" accept="image/*" hidden />' +
-      '<input type="text" placeholder="type a message…" aria-label="Message" /><button class="icon send" aria-label="Send">➤</button></form>' +
-      '<div class="foot">powered by <a href="https://flatkey.ai/?utm_source=mochi_bot&utm_medium=web_widget&utm_campaign=mochi&utm_content=powered_by" target="_blank" rel="noopener">flatkey</a></div></div>' +
-      '<button class="fab" aria-label="Open chat">' + esc(c.avatar) + "</button>";
+      '<button aria-label="' + esc(L.close) + '">×</button></div><div class="log"></div>' +
+      '<form><button type="button" class="icon attach" aria-label="' + esc(L.attach) + '">📎</button><input type="file" accept="image/*" hidden />' +
+      '<input type="text" placeholder="' + esc(L.placeholder) + '" aria-label="' + esc(L.message) + '" /><button class="icon send" aria-label="' + esc(L.send) + '">➤</button></form>' +
+      '<div class="foot">' + esc(L.powered) + ' <a href="https://flatkey.ai/?utm_source=mochi_bot&utm_medium=web_widget&utm_campaign=mochi&utm_content=powered_by" target="_blank" rel="noopener">flatkey</a></div></div>' +
+      '<button class="fab" aria-label="' + esc(L.open) + '">' + esc(c.avatar) + "</button>";
 
     var panel = root.querySelector(".panel");
     var log = root.querySelector(".log");
@@ -90,7 +99,7 @@
       var f = file.files[0];
       if (!f || f.size > 5 * 1024 * 1024) return;
       var r = new FileReader();
-      r.onload = function () { image = r.result; input.placeholder = "image attached, add a message…"; };
+      r.onload = function () { image = r.result; input.placeholder = L.attached; };
       r.readAsDataURL(f);
     };
 
@@ -100,12 +109,12 @@
       if (!text && !image) return;
       add("u", esc(text) + (image ? '<img src="' + image + '" alt="">' : ""));
       var body = JSON.stringify({ sessionId: sid, text: text, image: image });
-      input.value = ""; image = null; file.value = ""; input.placeholder = "type a message…";
+      input.value = ""; image = null; file.value = ""; input.placeholder = L.placeholder;
       var wait = add("b", "…");
       fetch(base + "/chat", { method: "POST", headers: { "content-type": "application/json" }, body: body })
         .then(function (r) { return r.json(); })
-        .then(function (d) { wait.innerHTML = esc(d.reply || d.error || "(｡•́︿•̀｡) hmm, no reply"); })
-        .catch(function () { wait.textContent = "connection hiccup, try again?"; });
+        .then(function (d) { wait.innerHTML = esc(d.reply || d.error || L.noReply); })
+        .catch(function () { wait.textContent = L.hiccup; });
     };
 
     function add(cls, html) {

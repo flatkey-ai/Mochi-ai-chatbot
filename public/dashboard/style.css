@@ -275,3 +275,8 @@ select {
 }
 select:focus { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23ff6fae' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 select::-ms-expand { display: none; }
+
+.sidebar-foot { display: flex; gap: 8px; align-items: center; }
+.sidebar-foot .lang-select { flex: 1; padding: 6px 30px 6px 10px; font-size: 13px; background-position: right 10px center; }
+.login-card .lang-select { align-self: center; padding: 6px 34px 6px 12px; font-size: 13px; border-color: transparent; background-color: transparent; color: var(--muted); }
+#logout { white-space: nowrap; }

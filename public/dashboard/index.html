@@ -11,25 +11,26 @@
 <div id="login" class="login hidden">
   <form id="login-form" class="card login-card">
     <div class="logo-big">🍡</div>
-    <h1>Mochi dashboard</h1>
-    <p class="muted">Enter the <code>ADMIN_TOKEN</code> from your <code>.env</code>.</p>
-    <input id="token" type="password" placeholder="Admin token" autocomplete="current-password" required />
-    <button class="btn primary" type="submit">Unlock</button>
+    <h1 data-i18n="Mochi dashboard">Mochi dashboard</h1>
+    <p class="muted" data-i18n="Enter the &lt;code&gt;ADMIN_TOKEN&lt;/code&gt; from your &lt;code&gt;.env&lt;/code&gt;.">Enter the <code>ADMIN_TOKEN</code> from your <code>.env</code>.</p>
+    <input id="token" type="password" placeholder="Admin token" data-i18n-placeholder="Admin token" autocomplete="current-password" required />
+    <button class="btn primary" type="submit" data-i18n="Unlock">Unlock</button>
     <p id="login-error" class="error"></p>
+    <select class="lang-select" aria-label="Language"></select>
   </form>
 </div>
 
 <div id="app" class="layout hidden">
   <aside class="sidebar">
-    <div class="brand"><span class="logo">🍡</span><div><b>Mochi</b><small>AI chatbots on flatkey</small></div></div>
+    <div class="brand"><span class="logo">🍡</span><div><b>Mochi</b><small data-i18n="AI chatbots on flatkey">AI chatbots on flatkey</small></div></div>
     <nav id="nav">
-      <a href="#bots" data-nav="bots">🤖 Bots</a>
+      <a href="#bots" data-nav="bots">🤖 <span data-i18n="Bots">Bots</span></a>
       <div id="nav-bots" class="nav-bots"></div>
-      <a href="#flatkey" data-nav="flatkey">🔑 Flatkey API key <span id="nav-key-dot" class="dot"></span></a>
-      <a href="#usage" data-nav="usage">📊 Usage &amp; cost</a>
+      <a href="#flatkey" data-nav="flatkey">🔑 <span data-i18n="Flatkey API key">Flatkey API key</span> <span id="nav-key-dot" class="dot"></span></a>
+      <a href="#usage" data-nav="usage">📊 <span data-i18n="Usage &amp;amp; cost">Usage &amp; cost</span></a>
     </nav>
-    <a class="fk-badge" href="https://flatkey.ai/?utm_source=mochi_bot&utm_medium=dashboard&utm_campaign=mochi&utm_content=sidebar_badge" target="_blank" rel="noopener"><b>flatkey</b><small>Official models. Better prices.</small></a>
-    <button id="logout" class="btn ghost small">Log out</button>
+    <a class="fk-badge" href="https://flatkey.ai/?utm_source=mochi_bot&utm_medium=dashboard&utm_campaign=mochi&utm_content=sidebar_badge" target="_blank" rel="noopener"><b>flatkey</b><small data-i18n="Official models. Better prices.">Official models. Better prices.</small></a>
+    <div class="sidebar-foot"><select class="lang-select" aria-label="Language"></select><button id="logout" class="btn ghost small" data-i18n="Log out">Log out</button></div>
   </aside>
   <main id="view"></main>
 </div>
@@ -37,6 +38,7 @@
 <div id="modal" class="modal hidden" role="dialog" aria-modal="true"><div class="modal-card card" id="modal-body"></div></div>
 <div id="toast" class="toast"></div>
 <datalist id="model-list"></datalist>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

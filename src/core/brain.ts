@@ -5,6 +5,7 @@ import type { SearchAbility } from "../abilities/search.ts";
 import type { KnowledgeHit, KnowledgeStore } from "../knowledge/store.ts";
 import type { BotRegistry, BotSettings } from "./bots.ts";
 import { buildPersonaPrompt } from "./persona.ts";
+import { FORGET_ME, builtinReply } from "./i18n.ts";
 import type { BotReply, IncomingMessage } from "./types.ts";
 
 const SEARCH_TOOL: ToolDef = {
@@ -37,7 +38,6 @@ const KNOWLEDGE_TOOL: ToolDef = {
   },
 };
 
-const FORGET_ME = /\b(forget me|forget about me|delete my (data|memory))\b/i;
 const MAX_TOOL_ROUNDS = 4;
 
 export interface BrainDeps {
@@ -85,7 +85,7 @@ export class Brain {
     const reply = await this.respond(bot, msg, history).catch((err) => {
       console.error(`[brain:${bot.id}] reply failed:`, err?.message ?? err);
       return msg.isDirect || msg.mentionsBot
-        ? { text: "oops, my brain glitched for a sec (╥﹏╥) try again?", usedSearch: false, usedVision: false }
+        ? { text: builtinReply("glitch", msg.text), usedSearch: false, usedVision: false }
         : null;
     });
 
@@ -125,15 +125,15 @@ export class Brain {
 
     if (FORGET_ME.test(msg.text)) {
       this.d.store.forgetPerson(bot.id, msg.platform, msg.userId);
-      return plain(`done — i've forgotten everything i knew about you, ${msg.userName}. fresh start ✨`);
+      return plain(builtinReply("forgot", msg.text, { name: msg.userName }));
     }
     if (!this.d.flatkey.hasKey()) {
       return msg.isDirect || msg.mentionsBot
-        ? plain("i'm not awake yet (˘ω˘) my admin needs to bind a Flatkey API key in my dashboard first!")
+        ? plain(builtinReply("asleep", msg.text))
         : null;
     }
     if (bot.limits.dailyTokenBudget > 0 && this.d.store.tokensToday(bot.id) >= bot.limits.dailyTokenBudget) {
-      return msg.isDirect || msg.mentionsBot ? plain("i'm all out of energy for today (daily budget reached) — catch you tomorrow! 💤") : null;
+      return msg.isDirect || msg.mentionsBot ? plain(builtinReply("budget", msg.text)) : null;
     }
 
     // ── knowledge base ──

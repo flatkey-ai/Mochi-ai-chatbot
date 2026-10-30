@@ -9,12 +9,14 @@
 <pre id="snippet"></pre>
 <script>
   // Load the widget for ?bot=<id> (defaults to your first bot).
-  var bot = new URLSearchParams(location.search).get("bot") || "";
+  var qs = new URLSearchParams(location.search);
+  var bot = qs.get("bot") || "";
   var s = document.createElement("script");
   s.src = "/widget/widget.js";
   s.defer = true;
   s.setAttribute("data-server", location.origin);
   if (bot) s.setAttribute("data-bot", bot);
+  if (qs.get("lang")) s.setAttribute("data-lang", qs.get("lang"));
   document.body.appendChild(s);
   document.getElementById("snippet").textContent =
     '<script src="' + location.origin + '/widget/widget.js" data-server="' + location.origin + '"' + (bot ? ' data-bot="' + bot + '"' : "") + ' defer></' + "script>";
