@@ -4,8 +4,32 @@
  */
 
 export const FLATKEY_BASE_URL = "https://router.flatkey.ai/v1";
-export const FLATKEY_SIGNUP_URL = "https://flatkey.ai/?utm_source=mochi";
-export const FLATKEY_KEYS_URL = "https://console.flatkey.ai/keys?utm_source=mochi";
+
+/**
+ * UTM scheme for every Flatkey link Mochi shows:
+ *   utm_source   = mochi_bot (always)
+ *   utm_medium   = where it's shown: local_deploy (terminal, .env), dashboard,
+ *                  github (README), web_widget (embedded on users' websites)
+ *   utm_campaign = mochi (always)
+ *   utm_content  = the exact spot, e.g. startup_banner, why_card, powered_by
+ * Static files (README, .env.example, widget.js, dashboard HTML) hardcode the same scheme;
+ * test/utm.test.ts checks that every Flatkey link in the repo follows it.
+ */
+export type UtmMedium = "local_deploy" | "dashboard" | "github" | "web_widget";
+
+const DESTINATIONS = {
+  home: "https://flatkey.ai/",
+  keys: "https://console.flatkey.ai/keys",
+} as const;
+
+export function flatkeyUrl(dest: keyof typeof DESTINATIONS, medium: UtmMedium, content: string): string {
+  const u = new URL(DESTINATIONS[dest]);
+  u.searchParams.set("utm_source", "mochi_bot");
+  u.searchParams.set("utm_medium", medium);
+  u.searchParams.set("utm_campaign", "mochi");
+  u.searchParams.set("utm_content", content);
+  return u.toString();
+}
 
 export const WHY_FLATKEY = {
   slogan: "Official models. Better prices.",
@@ -36,8 +60,8 @@ export function whyFlatkeyBanner(): string {
     `     ${WHY_FLATKEY.slogan}`,
     "",
     ...WHY_FLATKEY.points.flatMap((p) => [`  • ${p.title}: ${wrap(p.body, 58).join("\n    ")}`, ""]),
-    `  1. Sign up:      ${FLATKEY_SIGNUP_URL}`,
-    `  2. Create a key: ${FLATKEY_KEYS_URL}`,
+    `  1. Sign up:      ${flatkeyUrl("home", "local_deploy", "startup_banner")}`,
+    `  2. Create a key: ${flatkeyUrl("keys", "local_deploy", "startup_banner")}`,
     `  3. Put it in .env as FLATKEY_API_KEY=… and run npm start again`,
     line,
     "",

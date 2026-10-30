@@ -51,7 +51,7 @@
     '<button aria-label="Close">×</button></div><div class="log"></div>' +
     '<form><button type="button" class="icon attach" aria-label="Attach image">📎</button><input type="file" accept="image/*" hidden />' +
     '<input type="text" placeholder="type a message…" aria-label="Message" /><button class="icon send" aria-label="Send">➤</button></form>' +
-    '<div class="foot">powered by <a href="https://flatkey.ai" target="_blank" rel="noopener">flatkey</a></div></div>' +
+    '<div class="foot">powered by <a href="https://flatkey.ai/?utm_source=mochi_bot&utm_medium=web_widget&utm_campaign=mochi&utm_content=powered_by" target="_blank" rel="noopener">flatkey</a></div></div>' +
     '<button class="fab" aria-label="Open chat">🍡</button>';
 
   var panel = root.querySelector(".panel");

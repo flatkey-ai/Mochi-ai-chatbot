@@ -113,7 +113,10 @@ function renderWhyFlatkey() {
     <h3>Why Mochi runs on Flatkey</h3>
     <p class="slogan">${esc(w.slogan)}</p>
     <div class="why-grid">${w.points.map((p, i) => `<div><b>${WHY_ICONS[i] || "✨"} ${esc(p.title)}</b><p>${esc(p.body)}</p></div>`).join("")}</div>
-    <div class="actions" style="justify-content:flex-start"><a class="btn primary" href="${esc(w.signupUrl)}" target="_blank" rel="noopener">Open Flatkey</a></div>`;
+    <div class="actions" style="justify-content:flex-start">
+      <a class="btn primary" href="${esc(w.keysUrl)}" target="_blank" rel="noopener">Manage API keys</a>
+      <a class="btn ghost" href="${esc(w.homeUrl)}" target="_blank" rel="noopener">Explore models</a></div>`;
+  $(".fk-badge").href = w.badgeUrl;
 }
 
 function renderAbilityChips() {

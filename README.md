@@ -5,13 +5,13 @@
 **Your own AI chat buddy for Discord, Telegram, Slack and your website.**
 She remembers people, looks things up, reads images, and you control every cent she spends.
 
-Powered by [Flatkey](https://flatkey.ai): **Official models. Better prices.**
+Powered by [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_header): **Official models. Better prices.**
 
 </div>
 
 ---
 
-Mochi is an open-source chatbot you can deploy in minutes with one [Flatkey](https://flatkey.ai/?utm_source=mochi) API key. Pick any model on Flatkey for each job (chat, vision, memory, search), switch abilities on or off from a dashboard, and set a daily budget so costs never surprise you.
+Mochi is an open-source chatbot you can deploy in minutes with one [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_intro) API key. Pick any model on Flatkey for each job (chat, vision, memory, search), switch abilities on or off from a dashboard, and set a daily budget so costs never surprise you.
 
 ## Why Mochi runs on Flatkey
 
@@ -23,7 +23,7 @@ A good chatbot isn't one model. Mochi uses **four kinds of model calls**: chat, 
 | ⏱️ **Save time** | **One key, one balance, one bill** for 100+ models, across text, image, video and audio. No signing up with every provider your bot touches. |
 | 🔀 **Switch freely** | Change the model behind any ability from the dashboard in one click. No new signup, no code change. |
 
-**Official models. Better prices.** [Get your Flatkey key →](https://flatkey.ai/?utm_source=mochi)
+**Official models. Better prices.** [Get your Flatkey key →](https://console.flatkey.ai/keys?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_why)
 
 ![Mochi dashboard](docs/overview.png)
 
@@ -39,7 +39,7 @@ A good chatbot isn't one model. Mochi uses **four kinds of model calls**: chat, 
 
 ## Quick start
 
-You need **Node.js 22.13+** and a Flatkey API key: sign up at [flatkey.ai](https://flatkey.ai/?utm_source=mochi), then create a key at [console.flatkey.ai/keys](https://console.flatkey.ai/keys?utm_source=mochi).
+You need **Node.js 22.13+** and a Flatkey API key: sign up at [flatkey.ai](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_quickstart), then create a key at [console.flatkey.ai/keys](https://console.flatkey.ai/keys?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_quickstart).
 
 ```bash
 git clone https://github.com/flatkey-ai/Mochi-ai-chatbot.git
