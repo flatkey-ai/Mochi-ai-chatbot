@@ -4,6 +4,8 @@
  */
 
 export const FLATKEY_BASE_URL = "https://router.flatkey.ai/v1";
+/** The model catalog for an API key (what flatkey.ai/models shows), fetched with the key. */
+export const FLATKEY_MODELS_URL = "https://console.flatkey.ai/v1/models";
 
 /**
  * UTM scheme for every Flatkey link Mochi shows:

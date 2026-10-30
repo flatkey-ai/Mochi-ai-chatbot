@@ -89,6 +89,17 @@ test("binds a Flatkey key: rejects bad ones, saves good ones 0600 and masked", a
   assert.match((await widget("mochi", "hello there")).reply, /you said/);
 });
 
+test("model list comes from the Flatkey catalog, grouped by provider", async () => {
+  const { body } = await j("/api/admin/models");
+  const ids = body.models.map((m: any) => m.id);
+  assert.ok(ids.includes("deepseek-v4-1-flash"));
+  assert.equal(body.models.find((m: any) => m.id === "deepseek-v4-1-flash").provider, "DeepSeek");
+  assert.equal(body.models.find((m: any) => m.id === "claude-haiku-5-5").provider, "Anthropic");
+  // Defaults for new bots are in the catalog.
+  const b = S.bots.get("mochi")!;
+  for (const m of Object.values(b.models)) assert.ok(ids.includes(m), `${m} should be a Flatkey model`);
+});
+
 test("create a Q&A bot, edit its persona, preview the prompt", async () => {
   const { body } = await j("/api/admin/bots", { method: "POST", body: { preset: "qa", name: "Helpdesk" } });
   const id = body.bot.id;

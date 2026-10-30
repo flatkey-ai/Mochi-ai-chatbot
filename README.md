@@ -115,7 +115,7 @@ The widget takes its name, avatar, color, description and greeting from the bot'
 
 Every call goes through your one Flatkey balance. For each bot, under **Models & abilities**:
 
-- **Pick a model per job.** New bots use a fast DeepSeek model for chat and memory, a GPT model for reading images, and a Claude model for web search. Swap any of them for any model in the Flatkey catalog.
+- **Pick a model per job.** Each model field is a dropdown of every model on your Flatkey key (the same list as [flatkey.ai/models](https://flatkey.ai/models?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_models)), grouped by provider, or choose **Custom model ID…** to type any ID. New bots use a fast DeepSeek model for chat and memory, a GPT model for reading images, and a Claude model for web search.
 - **Toggle abilities.** Memory, search and image reading each add calls; turn off what you don't need. Changes apply instantly.
 - **Daily token budget.** Once it's reached, the bot politely goes quiet until the next UTC day, with no further calls.
 - **Limits.** Reply length, history length, memory update frequency, searches per reply, images per message.

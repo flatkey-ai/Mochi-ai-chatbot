@@ -25,6 +25,7 @@ test("every user-facing Flatkey link in the repo carries the UTM scheme", () => 
     for (const m of text.matchAll(re)) {
       const raw = m[0].replace(/[.,]+$/, "");
       if (raw.includes("${")) continue; // template built at runtime by flatkeyUrl
+      if (new URL(raw).pathname.startsWith("/v1/")) continue; // API endpoints, not links people click
       const u = new URL(raw);
       if (u.pathname === "/" && !u.search && f === "src/flatkey/why.ts") continue; // DESTINATIONS base
       if (u.pathname === "/keys" && !u.search && f === "src/flatkey/why.ts") continue;

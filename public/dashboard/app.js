@@ -15,6 +15,7 @@ const ls = {
 let token = ls.get("mochi_admin_token") || "";
 let ov = null; // /overview
 let modelsLoaded = false;
+let MODELS = []; // [{ id, provider, type }] from the Flatkey catalog for the bound key
 
 async function api(path, opts = {}) {
   const res = await fetch("/api/admin" + path, {
@@ -103,9 +104,32 @@ async function ensureModels() {
   if (modelsLoaded || !ov.flatkey.bound) return;
   try {
     const { models } = await api("/models");
+    MODELS = models;
     $("#model-list").innerHTML = models.map((m) => `<option value="${esc(m.id)}">`).join("");
     modelsLoaded = models.length > 0;
   } catch {}
+}
+
+/** Dropdown of the Flatkey catalog (grouped by provider) plus "Custom model ID…". */
+function modelPicker(id, value) {
+  const known = MODELS.some((m) => m.id === value);
+  const groups = {};
+  for (const m of MODELS) (groups[m.provider || "Other"] ??= []).push(m);
+  const opts = Object.entries(groups).map(([prov, ms]) =>
+    `<optgroup label="${esc(prov)}">${ms.map((m) => `<option value="${esc(m.id)}" ${m.id === value ? "selected" : ""}>${esc(m.id)}${m.type && m.type !== "text" ? ` (${esc(m.type)})` : ""}</option>`).join("")}</optgroup>`).join("");
+  return `<div class="model-picker" data-picker="${id}">
+    <select id="${id}-sel">${opts}<option value="__custom" ${known ? "" : "selected"}>✏️ Custom model ID…</option></select>
+    <input id="${id}" value="${esc(value)}" placeholder="Type any model ID from flatkey.ai/models" class="${known ? "hidden" : ""}" spellcheck="false" />
+  </div>`;
+}
+function wirePickers(root = document) {
+  $$("[data-picker]", root).forEach((w) => {
+    const sel = $("select", w), inp = $("input", w);
+    sel.addEventListener("change", () => {
+      if (sel.value === "__custom") { inp.classList.remove("hidden"); inp.focus(); }
+      else { inp.value = sel.value; inp.classList.add("hidden"); }
+    });
+  });
 }
 
 const view = () => $("#view");
@@ -546,12 +570,12 @@ async function tabAbilities(b) {
       <h3>Models</h3>
       <p class="muted small">Every ability runs through your Flatkey key, so any model in the Flatkey catalog works for any job. Use a strong model for chat and a small one for background memory.</p>
       <div class="grid2">
-        <label>Chat model<small>Main conversation</small><input list="model-list" id="m-chat" value="${esc(b.models.chat)}" /></label>
-        <label>Vision model<small>Used when a message has images. Must accept image input.</small><input list="model-list" id="m-vision" value="${esc(b.models.vision)}" /></label>
-        <label>Memory model<small>Background summaries and people profiles. A small model is fine.</small><input list="model-list" id="m-memory" value="${esc(b.models.memory)}" /></label>
-        <label>Search model<small>Grounded web search through Flatkey</small><input list="model-list" id="m-search" value="${esc(b.models.search)}" /></label>
+        <label>Chat model<small>Main conversation</small>${modelPicker("m-chat", b.models.chat)}</label>
+        <label>Vision model<small>Used when a message has images. Must accept image input.</small>${modelPicker("m-vision", b.models.vision)}</label>
+        <label>Memory model<small>Background summaries and people profiles. A small model is fine.</small>${modelPicker("m-memory", b.models.memory)}</label>
+        <label>Search model<small>Web search runs on the model's built-in search tool (Claude or GPT).</small>${modelPicker("m-search", b.models.search)}</label>
       </div>
-      ${ov.flatkey.bound ? "" : `<p class="muted small">Bind your <a href="#flatkey">Flatkey API key</a> to load the model list.</p>`}
+      <p class="muted small">${MODELS.length ? `${MODELS.length} models available on your Flatkey key, the same list as <a href="https://flatkey.ai/models?utm_source=mochi_bot&utm_medium=dashboard&utm_campaign=mochi&utm_content=model_picker" target="_blank" rel="noopener">flatkey.ai/models</a>. Pick one, or choose “Custom model ID…” to type any ID.` : ov.flatkey.bound ? "Couldn't load the model list right now. Type a model ID instead." : `Bind your <a href="#flatkey">Flatkey API key</a> to load the model list. Until then, type a model ID.`}</p>
     </div>
     <div class="card">
       <h3>Abilities &amp; cost control</h3>
@@ -573,9 +597,10 @@ async function tabAbilities(b) {
         <select id="s-mode"><option value="messages" ${b.search.mode === "messages" ? "selected" : ""}>Anthropic web_search (/v1/messages)</option><option value="responses" ${b.search.mode === "responses" ? "selected" : ""}>OpenAI web_search (/v1/responses)</option></select></label>
     </div>
     <div class="sticky-save"><button class="btn primary" id="save-abilities">Save</button></div>`;
+  wirePickers($("#tab"));
   for (const k of ["memory", "search", "vision"]) $("#f-" + k).addEventListener("change", (e) => saveBot({ features: { [k]: e.target.checked } }, `${k} ${e.target.checked ? "on" : "off"}`));
   $("#save-abilities").addEventListener("click", () => saveBot({
-    models: Object.fromEntries(["chat", "vision", "memory", "search"].map((k) => [k, $("#m-" + k).value.trim()])),
+    models: Object.fromEntries(["chat", "vision", "memory", "search"].map((k) => [k, ($("#m-" + k + "-sel").value === "__custom" ? $("#m-" + k).value : $("#m-" + k + "-sel").value).trim()]).filter(([, v]) => v)),
     limits: { dailyTokenBudget: +$("#l-budget").value, maxReplyTokens: +$("#l-reply").value, historyMessages: +$("#l-history").value, memoryUpdateEvery: +$("#l-every").value, maxImagesPerMessage: +$("#l-images").value },
     search: { mode: $("#s-mode").value, maxSearchesPerReply: +$("#l-searches").value },
   }).then(() => viewBot(b.id, "abilities")).catch((err) => toast(err.message)));

@@ -257,3 +257,7 @@ details summary { cursor: pointer; font-weight: 700; color: #c2306f; margin: 6px
 @media (max-width: 760px) {
   .nav-bots { display: none; }
 }
+
+.model-picker { display: flex; flex-direction: column; gap: 6px; }
+.model-picker select { font-weight: 500; }
+.model-picker input { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }

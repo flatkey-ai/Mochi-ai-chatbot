@@ -4,7 +4,7 @@
  * so one key covers chat, vision and grounded web search.
  */
 
-import { FLATKEY_BASE_URL, resolveFlatkeyBaseUrl } from "./why.ts";
+import { FLATKEY_BASE_URL, FLATKEY_MODELS_URL, resolveFlatkeyBaseUrl } from "./why.ts";
 
 export interface ChatContentPart {
   type: "text" | "image_url";
@@ -43,7 +43,10 @@ export interface ChatResult {
 
 export interface FlatkeyModel {
   id: string;
-  owned_by?: string;
+  /** Provider / family, e.g. "OpenAI", "DeepSeek". */
+  provider?: string;
+  /** Modality if the catalog says, e.g. "text", "image", "video". */
+  type?: string;
 }
 
 export class FlatkeyError extends Error {
@@ -140,18 +143,71 @@ export class FlatkeyClient {
     return this.post("/responses", body);
   }
 
+  /**
+   * Models available to an API key, from the Flatkey console catalog
+   * (https://console.flatkey.ai/v1/models, the same list as flatkey.ai/models).
+   * Falls back to the router's /models if the console can't be reached.
+   */
   async listModels(apiKey = this.apiKey): Promise<FlatkeyModel[]> {
     if (!apiKey) throw new FlatkeyError("No Flatkey API key bound. Add one in the dashboard.", 0);
-    const res = await fetch(`${this.baseUrl}/models`, {
-      headers: { authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!res.ok) throw new FlatkeyError(`Flatkey /models ${res.status}`, res.status);
-    const data: any = await res.json();
-    const list: any[] = Array.isArray(data?.data) ? data.data : Array.isArray(data?.models) ? data.models : [];
-    return list
-      .filter((m) => m && typeof m.id === "string")
-      .map((m) => ({ id: m.id, owned_by: m.owned_by }))
-      .sort((a, b) => a.id.localeCompare(b.id));
+    // With the offline mock (localhost), the catalog is served by the mock too.
+    const isMock = !this.baseUrl.includes("flatkey.ai");
+    const primary = isMock ? `${this.baseUrl}/models` : FLATKEY_MODELS_URL;
+    try {
+      return await fetchModels(primary, apiKey);
+    } catch (err) {
+      if (isMock || (err instanceof FlatkeyError && (err.status === 401 || err.status === 403))) throw err;
+      return fetchModels(`${this.baseUrl}/models`, apiKey);
+    }
   }
+}
+
+async function fetchModels(url: string, apiKey: string): Promise<FlatkeyModel[]> {
+  const res = await fetch(url, {
+    headers: { authorization: `Bearer ${apiKey}`, accept: "application/json" },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new FlatkeyError(`Flatkey models ${res.status}`, res.status);
+  const data: any = await res.json();
+  const list: any[] = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.models)
+        ? data.models
+        : Array.isArray(data?.data?.models)
+          ? data.data.models
+          : [];
+  const seen = new Set<string>();
+  const out: FlatkeyModel[] = [];
+  for (const m of list) {
+    const id = typeof m === "string" ? m : (m?.id ?? m?.model ?? m?.model_name ?? m?.name);
+    if (typeof id !== "string" || !id || seen.has(id)) continue;
+    seen.add(id);
+    const provider = typeof m === "object" ? (m.provider ?? m.vendor ?? m.owned_by ?? m.developer) : undefined;
+    const type = typeof m === "object" ? (m.type ?? m.modality ?? m.category) : undefined;
+    out.push({
+      id,
+      provider: typeof provider === "string" && provider ? provider : inferProvider(id),
+      type: typeof type === "string" ? type : undefined,
+    });
+  }
+  return out.sort((a, b) => (a.provider ?? "").localeCompare(b.provider ?? "") || a.id.localeCompare(b.id));
+}
+
+const PROVIDERS: [RegExp, string][] = [
+  [/^(gpt|o\d|chatgpt|dall-e|sora)/i, "OpenAI"],
+  [/^claude/i, "Anthropic"],
+  [/^deepseek/i, "DeepSeek"],
+  [/^(gemini|gemma|veo|imagen)/i, "Google"],
+  [/^(kimi|moonshot)/i, "Moonshot AI"],
+  [/^glm/i, "Zhipu AI"],
+  [/^qwen/i, "Alibaba (Qwen)"],
+  [/^grok/i, "xAI"],
+  [/^minimax/i, "MiniMax"],
+  [/^(seedance|seedream|doubao)/i, "ByteDance"],
+];
+
+function inferProvider(id: string): string {
+  return PROVIDERS.find(([re]) => re.test(id))?.[1] ?? "Other";
 }
