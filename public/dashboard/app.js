@@ -58,6 +58,7 @@ function route() {
   if (id === "usage") loadUsage();
   if (id === "memory") loadMemory();
   if (id === "overview") loadOverviewStats();
+  if (id === "models" && state && !state.flatkey.bound) $("#models-note").innerHTML = 'Bind your <a href="#flatkey">Flatkey API key</a> to load the model list.';
 }
 window.addEventListener("hashchange", route);
 
@@ -67,8 +68,10 @@ async function boot() {
   $("#login").classList.add("hidden");
   $("#app").classList.remove("hidden");
   fill();
+  // First run: send people straight to key binding.
+  if (!state.flatkey.bound && (!location.hash || location.hash === "#overview")) location.hash = "#flatkey";
   route();
-  loadModels();
+  if (state.flatkey.bound) loadModels();
 }
 
 function fill() {
@@ -103,7 +106,46 @@ function fill() {
   renderPlatforms();
   renderAbilityChips();
   renderWhyFlatkey();
+  renderKeyStatus();
 }
+
+function renderKeyStatus() {
+  const k = state.flatkey;
+  $("#key-alert").classList.toggle("hidden", k.bound);
+  $("#nav-key-dot").className = "dot " + (k.bound ? "ok" : "bad");
+  $("#create-key-link").href = k.keysUrl;
+  const from = k.source === "dashboard" ? "bound in this dashboard" : "from FLATKEY_API_KEY in .env";
+  $("#key-status").innerHTML = k.bound
+    ? `<span class="big">✅</span><div><b>Key bound. Mochi is awake.</b><br /><span class="muted small"><code>${esc(k.masked)}</code> · ${from}</span></div>
+       ${k.source === "dashboard" ? `<button class="btn danger small" id="unbind-key" type="button">Unbind</button>` : ""}`
+    : `<span class="big">😴</span><div><b>No key bound yet.</b><br /><span class="muted small">Mochi can't reply until she has a Flatkey API key. Follow the steps below.</span></div>`;
+  $("#unbind-key")?.addEventListener("click", async (e) => {
+    if (!confirmInline(e.target, "Unbind")) return;
+    state.flatkey = await api("/flatkey", { method: "DELETE" });
+    renderKeyStatus();
+    toast(state.flatkey.bound ? "Using the key from .env" : "Key unbound");
+  });
+}
+
+$("#key-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const apiKey = $("#key-input").value.trim();
+  if (!apiKey) return;
+  const btn = $("#key-form button");
+  btn.disabled = true; btn.textContent = "Checking…"; $("#key-error").textContent = "";
+  try {
+    const r = await api("/flatkey", { method: "PUT", body: { apiKey } });
+    state.flatkey = r;
+    $("#key-input").value = "";
+    renderKeyStatus();
+    loadModels();
+    toast(`Key bound ✨ ${r.models} models available`);
+  } catch (err) {
+    $("#key-error").textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "Bind key";
+  }
+});
 
 const WHY_ICONS = ["💸", "⏱️", "🔀"];
 function renderWhyFlatkey() {
@@ -283,11 +325,11 @@ async function loadMemory() {
   }));
 }
 // Two-click confirm without browser dialogs.
-function confirmInline(btn) {
+function confirmInline(btn, label = "Forget") {
   if (btn.dataset.armed) return true;
   btn.dataset.armed = "1";
   btn.textContent = "Sure?";
-  setTimeout(() => { delete btn.dataset.armed; btn.textContent = "Forget"; }, 3000);
+  setTimeout(() => { delete btn.dataset.armed; btn.textContent = label; }, 3000);
   return false;
 }
 

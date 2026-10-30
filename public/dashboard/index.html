@@ -24,6 +24,7 @@
     <div class="brand"><span class="logo">🍡</span><div><b id="bot-name">Mochi</b><small>powered by flatkey</small></div></div>
     <nav>
       <a href="#overview" class="active">Overview</a>
+      <a href="#flatkey">Flatkey API key <span id="nav-key-dot" class="dot"></span></a>
       <a href="#models">Models</a>
       <a href="#abilities">Abilities &amp; cost</a>
       <a href="#persona">Persona</a>
@@ -40,6 +41,11 @@
     <!-- Overview -->
     <section id="overview" class="page">
       <header class="page-head"><h2>Overview</h2><p class="muted">How Mochi is doing today.</p></header>
+      <a href="#flatkey" id="key-alert" class="alert hidden">
+        <span class="alert-icon">🔑</span>
+        <span><b>Mochi is asleep: bind your Flatkey API key to wake her up.</b><br /><small>It takes about a minute. Create a key on Flatkey, paste it here, done.</small></span>
+        <span class="btn primary small">Bind key →</span>
+      </a>
       <div class="stats">
         <div class="stat"><span>Tokens today</span><b id="st-tokens">–</b><small id="st-budget"></small></div>
         <div class="stat"><span>Est. cost (7 days)</span><b id="st-cost">–</b><small>from your pricing table</small></div>
@@ -51,6 +57,37 @@
         <div id="ov-abilities" class="chips"></div>
       </div>
       <div class="card why" id="why-flatkey"></div>
+    </section>
+
+    <!-- Flatkey API key -->
+    <section id="flatkey" class="page hidden">
+      <header class="page-head"><h2>Flatkey API key</h2><p class="muted">Mochi runs on Flatkey. One key powers chat, image reading, web search and memory.</p></header>
+      <div class="card key-status" id="key-status"></div>
+      <div class="card">
+        <ol class="steps">
+          <li>
+            <div><b>Create a key on Flatkey</b><p class="muted small">Sign in or sign up, then create a new API key and copy it.</p></div>
+            <a id="create-key-link" class="btn primary" href="https://console.flatkey.ai/keys?utm_source=mochi_bot&utm_medium=local_deploy&utm_campaign=mochi&utm_content=dashboard_api_key" target="_blank" rel="noopener">Create a key on Flatkey ↗</a>
+          </li>
+          <li>
+            <div><b>Paste it here and bind</b><p class="muted small">Mochi checks the key with Flatkey before saving. It's stored only on your server and is never shown in full again.</p></div>
+            <form id="key-form" class="key-form">
+              <input id="key-input" type="password" placeholder="Paste your Flatkey API key" autocomplete="off" spellcheck="false" />
+              <button class="btn primary" type="submit">Bind key</button>
+            </form>
+            <p id="key-error" class="error small"></p>
+          </li>
+          <li>
+            <div><b>Pick your models</b><p class="muted small">Once the key is bound, every model on your Flatkey account appears on the <a href="#models">Models</a> page.</p></div>
+          </li>
+        </ol>
+      </div>
+      <div class="card why-mini">
+        <b>Why Flatkey?</b>
+        <p>💸 Mainstream models like GPT, Claude, DeepSeek, Kimi and GLM are at least 20% below official pricing, and failed calls cost $0.</p>
+        <p>⏱️ A chatbot needs several kinds of models. With Flatkey that's one key, one balance and one bill instead of an account per provider.</p>
+        <p class="slogan">Official models. Better prices.</p>
+      </div>
     </section>
 
     <!-- Models -->

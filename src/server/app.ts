@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import type { Brain } from "../core/brain.ts";
 import type { SettingsStore } from "../core/settings.ts";
+import { maskKey, type SecretsStore } from "../core/secrets.ts";
 import type { Platform, PlatformAdapter } from "../core/types.ts";
 import type { FlatkeyClient, FlatkeyModel } from "../flatkey/client.ts";
 import type { MemoryStore } from "../memory/store.ts";
@@ -11,6 +12,8 @@ import { WHY_FLATKEY, flatkeyUrl } from "../flatkey/why.ts";
 export interface ServerDeps {
   brain: Brain;
   settings: SettingsStore;
+  secrets: SecretsStore;
+  envFlatkeyKey?: string;
   store: MemoryStore;
   flatkey: FlatkeyClient;
   adapters: () => Partial<Record<Platform, PlatformAdapter>>;
@@ -84,12 +87,54 @@ export function createServer(d: ServerDeps) {
     next();
   });
 
+  let modelCache: { at: number; models: FlatkeyModel[] } | null = null;
+  const flatkeyStatus = () => {
+    const dash = d.secrets.flatkeyApiKey;
+    const key = dash ?? d.envFlatkeyKey;
+    return {
+      bound: d.flatkey.hasKey(),
+      source: dash ? "dashboard" : d.envFlatkeyKey ? "env" : null,
+      masked: maskKey(key),
+      // Where users create the key they bind here.
+      keysUrl: flatkeyUrl("keys", "local_deploy", "dashboard_api_key"),
+    };
+  };
+
+  admin.get("/flatkey", (_req, res) => res.json(flatkeyStatus()));
+
+  /** Bind a Flatkey API key: verify it against Flatkey, then save it. */
+  admin.put("/flatkey", async (req, res) => {
+    const key = String(req.body?.apiKey ?? "").trim();
+    if (!key || key.length < 10 || /\s/.test(key)) return res.status(400).json({ error: "That doesn't look like an API key." });
+    try {
+      const models = await d.flatkey.listModels(key);
+      d.secrets.setFlatkeyApiKey(key);
+      d.flatkey.setApiKey(key);
+      modelCache = { at: Date.now(), models };
+      res.json({ ...flatkeyStatus(), models: models.length });
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      res.status(400).json({
+        error: status === 401 || status === 403 ? "Flatkey rejected this key. Check that you copied the whole key and that it's active." : `Couldn't verify the key: ${(err as Error).message}`,
+      });
+    }
+  });
+
+  /** Unbind the dashboard key (falls back to FLATKEY_API_KEY in .env, if any). */
+  admin.delete("/flatkey", (_req, res) => {
+    d.secrets.setFlatkeyApiKey(undefined);
+    d.flatkey.setApiKey(d.envFlatkeyKey);
+    modelCache = null;
+    res.json(flatkeyStatus());
+  });
+
   admin.get("/overview", (_req, res) => {
     const adapters = d.adapters();
     const s = d.settings.get();
     res.json({
       settings: s,
       flatkeyBaseUrl: d.flatkey.baseUrl,
+      flatkey: flatkeyStatus(),
       whyFlatkey: {
         ...WHY_FLATKEY,
         keysUrl: flatkeyUrl("keys", "dashboard", "why_card"),
@@ -115,7 +160,6 @@ export function createServer(d: ServerDeps) {
     }
   });
 
-  let modelCache: { at: number; models: FlatkeyModel[] } | null = null;
   admin.get("/models", async (_req, res) => {
     try {
       if (!modelCache || Date.now() - modelCache.at > 5 * 60_000) modelCache = { at: Date.now(), models: await d.flatkey.listModels() };

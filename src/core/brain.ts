@@ -104,6 +104,12 @@ export class Brain {
       return { text: `done — i've forgotten everything i knew about you, ${msg.userName}. fresh start ✨`, usedSearch: false, usedVision: false };
     }
 
+    if (!this.d.flatkey.hasKey()) {
+      return msg.isDirect || msg.mentionsBot
+        ? { text: "i'm not awake yet (˘ω˘) my admin needs to bind a Flatkey API key in my dashboard first!", usedSearch: false, usedVision: false }
+        : null;
+    }
+
     if (s.limits.dailyTokenBudget > 0 && this.d.store.tokensToday() >= s.limits.dailyTokenBudget) {
       return msg.isDirect || msg.mentionsBot
         ? { text: "i'm all out of energy for today (daily budget reached) — catch you tomorrow! 💤", usedSearch: false, usedVision: false }

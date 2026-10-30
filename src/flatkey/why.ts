@@ -62,7 +62,7 @@ export function whyFlatkeyBanner(): string {
     ...WHY_FLATKEY.points.flatMap((p) => [`  • ${p.title}: ${wrap(p.body, 58).join("\n    ")}`, ""]),
     `  1. Sign up:      ${flatkeyUrl("home", "local_deploy", "startup_banner")}`,
     `  2. Create a key: ${flatkeyUrl("keys", "local_deploy", "startup_banner")}`,
-    `  3. Put it in .env as FLATKEY_API_KEY=… and run npm start again`,
+    `  3. Paste it in the dashboard (Flatkey API key page), or set FLATKEY_API_KEY in .env`,
     line,
     "",
   ].join("\n");

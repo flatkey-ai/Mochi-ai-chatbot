@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Brain } from "./core/brain.ts";
 import { SettingsStore } from "./core/settings.ts";
+import { SecretsStore } from "./core/secrets.ts";
 import type { Platform, PlatformAdapter } from "./core/types.ts";
 import { FlatkeyClient } from "./flatkey/client.ts";
 import { resolveFlatkeyBaseUrl, whyFlatkeyBanner } from "./flatkey/why.ts";
@@ -18,11 +19,6 @@ import { createServer } from "./server/app.ts";
 const env = process.env;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-if (!env.FLATKEY_API_KEY) {
-  console.error("Missing FLATKEY_API_KEY.");
-  console.error(whyFlatkeyBanner());
-  process.exit(1);
-}
 let flatkeyBaseUrl: string;
 try {
   flatkeyBaseUrl = resolveFlatkeyBaseUrl(env.FLATKEY_BASE_URL);
@@ -38,8 +34,10 @@ const dataDir = path.resolve(env.DATA_DIR || path.join(root, "data"));
 fs.mkdirSync(dataDir, { recursive: true });
 
 const settings = new SettingsStore(dataDir);
+const secrets = new SecretsStore(dataDir);
 const store = new MemoryStore(dataDir);
-const flatkey = new FlatkeyClient(env.FLATKEY_API_KEY, flatkeyBaseUrl);
+// A key bound in the dashboard takes precedence over FLATKEY_API_KEY in .env.
+const flatkey = new FlatkeyClient(secrets.flatkeyApiKey ?? env.FLATKEY_API_KEY, flatkeyBaseUrl);
 const getSettings = () => settings.get();
 const updater = new MemoryUpdater(flatkey, store, getSettings);
 const search = new SearchAbility(flatkey, getSettings);
@@ -81,6 +79,8 @@ const publicUrl = (env.PUBLIC_URL || `http://localhost:${port}`).replace(/\/+$/,
 const app = createServer({
   brain,
   settings,
+  secrets,
+  envFlatkeyKey: env.FLATKEY_API_KEY,
   store,
   flatkey,
   adapters: () => running,
@@ -95,6 +95,10 @@ const app = createServer({
   publicDir: path.join(root, "public"),
 });
 const server = app.listen(port, () => {
+  if (!flatkey.hasKey()) {
+    console.log(whyFlatkeyBanner());
+    console.log(`  👉 Bind your key in the dashboard: ${publicUrl}/dashboard/#flatkey\n`);
+  }
   console.log(`[mochi] dashboard: ${publicUrl}/dashboard/`);
   console.log(`[mochi] web widget: <script src="${publicUrl}/widget/widget.js" data-server="${publicUrl}" defer></script>`);
 });

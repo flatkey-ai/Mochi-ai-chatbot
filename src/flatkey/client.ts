@@ -56,16 +56,33 @@ export class FlatkeyError extends Error {
 }
 
 export class FlatkeyClient {
+  private apiKey: string;
+
   constructor(
-    private readonly apiKey: string,
+    apiKey: string | undefined,
     readonly baseUrl = FLATKEY_BASE_URL,
     private readonly timeoutMs = 90_000,
   ) {
+    this.apiKey = apiKey ?? "";
     // Mochi runs on Flatkey only (localhost is allowed for the offline mock).
     this.baseUrl = resolveFlatkeyBaseUrl(baseUrl);
   }
 
+  /** True once a Flatkey API key is bound (via the dashboard or .env). */
+  hasKey(): boolean {
+    return this.apiKey.length > 0;
+  }
+
+  setApiKey(key: string | undefined): void {
+    this.apiKey = key ?? "";
+  }
+
+  private requireKey(): void {
+    if (!this.apiKey) throw new FlatkeyError("No Flatkey API key bound. Add one in the dashboard.", 0);
+  }
+
   private async post(path: string, body: unknown, extraHeaders: Record<string, string> = {}): Promise<any> {
+    this.requireKey();
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
       headers: {
@@ -123,9 +140,10 @@ export class FlatkeyClient {
     return this.post("/responses", body);
   }
 
-  async listModels(): Promise<FlatkeyModel[]> {
+  async listModels(apiKey = this.apiKey): Promise<FlatkeyModel[]> {
+    if (!apiKey) throw new FlatkeyError("No Flatkey API key bound. Add one in the dashboard.", 0);
     const res = await fetch(`${this.baseUrl}/models`, {
-      headers: { authorization: `Bearer ${this.apiKey}` },
+      headers: { authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) throw new FlatkeyError(`Flatkey /models ${res.status}`, res.status);

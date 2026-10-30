@@ -39,17 +39,27 @@ A good chatbot isn't one model. Mochi uses **four kinds of model calls**: chat, 
 
 ## Quick start
 
-You need **Node.js 22.13+** and a Flatkey API key: sign up at [flatkey.ai](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_quickstart), then create a key at [console.flatkey.ai/keys](https://console.flatkey.ai/keys?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_quickstart).
+You need **Node.js 22.13+**.
 
 ```bash
 git clone https://github.com/flatkey-ai/Mochi-ai-chatbot.git
 cd Mochi-ai-chatbot
 npm install
-cp .env.example .env      # add FLATKEY_API_KEY and an ADMIN_TOKEN
+cp .env.example .env      # set a strong ADMIN_TOKEN
 npm start
 ```
 
-Open **http://localhost:3000/dashboard**, enter your `ADMIN_TOKEN`, and say hi in the **Playground**. Then connect the platforms you want:
+Open **http://localhost:3000/dashboard** and enter your `ADMIN_TOKEN`. You'll land on **Flatkey API key**:
+
+1. Click **Create a key on Flatkey** ([or open it here](https://console.flatkey.ai/keys?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_quickstart)), then sign in or sign up and copy a new key.
+2. Paste it and click **Bind key**. Mochi verifies it with Flatkey and stores it only on your server.
+3. Say hi in the **Playground**.
+
+![Bind your Flatkey API key](docs/bind-key.png)
+
+Prefer config files? Set `FLATKEY_API_KEY` in `.env` instead. A key bound in the dashboard takes precedence.
+
+Then connect the platforms you want:
 
 <details>
 <summary><b>🎮 Discord</b></summary>

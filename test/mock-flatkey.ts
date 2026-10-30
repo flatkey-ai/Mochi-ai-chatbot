@@ -18,7 +18,8 @@ export function startMockFlatkey(port = 0): Promise<{ url: string; calls: MockCa
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(data));
     };
-    if (!String(req.headers.authorization ?? "").startsWith("Bearer ")) return send({ error: "no key" }, 401);
+    const auth = String(req.headers.authorization ?? "");
+    if (!auth.startsWith("Bearer ") || auth.startsWith("Bearer bad-")) return send({ error: "invalid api key" }, 401);
 
     if (req.url === "/v1/models") {
       return send({ data: ["gpt-5.4-mini", "gpt-5.4-nano", "claude-sonnet-4-6", "deepseek-chat", "kimi-k2"].map((id) => ({ id, object: "model" })) });
