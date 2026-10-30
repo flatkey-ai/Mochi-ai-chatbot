@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mochi · Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍡</text></svg>" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="login" class="login hidden">
+  <form id="login-form" class="card login-card">
+    <div class="logo-big">🍡</div>
+    <h1>Mochi dashboard</h1>
+    <p class="muted">Enter the <code>ADMIN_TOKEN</code> from your <code>.env</code>.</p>
+    <input id="token" type="password" placeholder="Admin token" autocomplete="current-password" required />
+    <button class="btn primary" type="submit">Unlock</button>
+    <p id="login-error" class="error"></p>
+  </form>
+</div>
+
+<div id="app" class="layout hidden">
+  <aside class="sidebar">
+    <div class="brand"><span class="logo">🍡</span><div><b id="bot-name">Mochi</b><small>powered by flatkey</small></div></div>
+    <nav>
+      <a href="#overview" class="active">Overview</a>
+      <a href="#models">Models</a>
+      <a href="#abilities">Abilities &amp; cost</a>
+      <a href="#persona">Persona</a>
+      <a href="#platforms">Platforms</a>
+      <a href="#usage">Usage</a>
+      <a href="#memory">Memory</a>
+      <a href="#playground">Playground</a>
+    </nav>
+    <button id="logout" class="btn ghost small">Log out</button>
+  </aside>
+
+  <main>
+    <!-- Overview -->
+    <section id="overview" class="page">
+      <header class="page-head"><h2>Overview</h2><p class="muted">How Mochi is doing today.</p></header>
+      <div class="stats">
+        <div class="stat"><span>Tokens today</span><b id="st-tokens">–</b><small id="st-budget"></small></div>
+        <div class="stat"><span>Est. cost (7 days)</span><b id="st-cost">–</b><small>from your pricing table</small></div>
+        <div class="stat"><span>People remembered</span><b id="st-people">–</b><small id="st-rooms"></small></div>
+        <div class="stat"><span>Live platforms</span><b id="st-platforms">–</b><small>of 4</small></div>
+      </div>
+      <div class="card">
+        <h3>Abilities at a glance</h3>
+        <div id="ov-abilities" class="chips"></div>
+      </div>
+    </section>
+
+    <!-- Models -->
+    <section id="models" class="page hidden">
+      <header class="page-head"><h2>Models</h2><p class="muted">Every model on your Flatkey key is available. Pick a cheaper model for background jobs to save money.</p></header>
+      <div class="card">
+        <div class="grid2">
+          <label>Chat model<small>Main conversation</small><input list="model-list" id="m-chat" /></label>
+          <label>Vision model<small>Used when a message has images. Must accept image input.</small><input list="model-list" id="m-vision" /></label>
+          <label>Memory model<small>Background summaries and people profiles. Cheap is fine.</small><input list="model-list" id="m-memory" /></label>
+          <label>Search model<small>Grounded web search through Flatkey</small><input list="model-list" id="m-search" /></label>
+        </div>
+        <datalist id="model-list"></datalist>
+        <p id="models-note" class="muted small"></p>
+        <div class="actions"><button class="btn primary" data-save="models">Save models</button></div>
+      </div>
+    </section>
+
+    <!-- Abilities -->
+    <section id="abilities" class="page hidden">
+      <header class="page-head"><h2>Abilities &amp; cost control</h2><p class="muted">Turn abilities off to cut spend. Changes apply instantly, with no restart.</p></header>
+      <div class="card">
+        <div class="toggle-row">
+          <div><b>🧠 Memory</b><p class="muted small">Remembers people (personality, facts, interests) and what each room talks about. Costs one cheap memory-model call every <span class="js-every">N</span> messages per room.</p></div>
+          <label class="switch"><input type="checkbox" id="f-memory" /><span></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><b>🔎 Web search</b><p class="muted small">Looks up facts it isn't sure about. Each search is one extra search-model call.</p></div>
+          <label class="switch"><input type="checkbox" id="f-search" /><span></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><b>🖼️ Image reading</b><p class="muted small">Reads images people send, using the vision model. Image input uses more tokens than text.</p></div>
+          <label class="switch"><input type="checkbox" id="f-vision" /><span></span></label>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Limits</h3>
+        <div class="grid3">
+          <label>Daily token budget<small>0 = no cap. Mochi goes quiet once reached.</small><input type="number" min="0" id="l-budget" /></label>
+          <label>Max reply tokens<input type="number" min="50" id="l-reply" /></label>
+          <label>Chat history (messages)<small>More history = more tokens per reply</small><input type="number" min="2" id="l-history" /></label>
+          <label>Memory update every N messages<input type="number" min="3" id="l-every" /></label>
+          <label>Max searches per reply<input type="number" min="1" max="5" id="l-searches" /></label>
+          <label>Max images per message<input type="number" min="1" max="6" id="l-images" /></label>
+        </div>
+        <label class="inline">Search protocol
+          <select id="s-mode">
+            <option value="messages">Anthropic web_search (/v1/messages)</option>
+            <option value="responses">OpenAI web_search (/v1/responses)</option>
+          </select>
+        </label>
+        <div class="actions"><button class="btn primary" data-save="abilities">Save</button></div>
+      </div>
+      <div class="card">
+        <h3>Pricing table <span class="muted small">(optional, for cost estimates)</span></h3>
+        <p class="muted small">$ per 1M tokens. Copy these from your Flatkey console pricing page.</p>
+        <table class="table" id="pricing-table"><thead><tr><th>Model</th><th>Input $/1M</th><th>Output $/1M</th><th></th></tr></thead><tbody></tbody></table>
+        <div class="actions"><button class="btn ghost" id="add-price">+ Add model</button><button class="btn primary" data-save="pricing">Save pricing</button></div>
+      </div>
+    </section>
+
+    <!-- Persona -->
+    <section id="persona" class="page hidden">
+      <header class="page-head"><h2>Persona</h2><p class="muted">Who your bot is and when it speaks up.</p></header>
+      <div class="card">
+        <div class="grid2">
+          <label>Name<input id="p-name" maxlength="40" /></label>
+          <label>Nicknames<small>Comma-separated. Saying one in a group chat gets a reply.</small><input id="p-nick" /></label>
+        </div>
+        <label>System prompt<textarea id="p-prompt" rows="9"></textarea></label>
+      </div>
+      <div class="card">
+        <h3>When to reply</h3>
+        <div class="toggle-row"><div><b>Direct messages</b></div><label class="switch"><input type="checkbox" id="t-dm" /><span></span></label></div>
+        <div class="toggle-row"><div><b>When @mentioned or replied to</b></div><label class="switch"><input type="checkbox" id="t-mention" /><span></span></label></div>
+        <div class="toggle-row"><div><b>When its name is said</b></div><label class="switch"><input type="checkbox" id="t-name" /><span></span></label></div>
+        <label>Random chime-in chance in groups: <b id="t-rand-val">0%</b><input type="range" id="t-rand" min="0" max="0.3" step="0.01" /></label>
+        <div class="actions"><button class="btn primary" data-save="persona">Save persona</button></div>
+      </div>
+    </section>
+
+    <!-- Platforms -->
+    <section id="platforms" class="page hidden">
+      <header class="page-head"><h2>Platforms</h2><p class="muted">Tokens live in <code>.env</code>. Toggle a platform here to start or stop it live.</p></header>
+      <div id="platform-cards" class="grid2"></div>
+      <div class="card">
+        <h3>Website widget</h3>
+        <p class="muted small">Paste this before <code>&lt;/body&gt;</code> on any site:</p>
+        <pre id="widget-snippet"></pre>
+        <label>Allowed origins<small>Comma-separated, e.g. https://example.com. Use * for any.</small><input id="w-origins" /></label>
+        <div class="actions"><button class="btn primary" data-save="web">Save</button></div>
+      </div>
+    </section>
+
+    <!-- Usage -->
+    <section id="usage" class="page hidden">
+      <header class="page-head"><h2>Usage</h2><p class="muted">Token usage by ability and model.</p>
+        <select id="u-days"><option value="1">Today</option><option value="7" selected>7 days</option><option value="30">30 days</option></select>
+      </header>
+      <div class="card"><h3>Tokens per day</h3><div id="u-chart" class="bars"></div></div>
+      <div class="card">
+        <table class="table"><thead><tr><th>Ability</th><th>Model</th><th>Calls</th><th>Input</th><th>Output</th><th>Est. cost</th></tr></thead><tbody id="u-rows"></tbody></table>
+      </div>
+    </section>
+
+    <!-- Memory -->
+    <section id="memory" class="page hidden">
+      <header class="page-head"><h2>Memory</h2><p class="muted">What Mochi remembers. Users can also say "forget me" to Mochi.</p></header>
+      <div class="card"><h3>People</h3><div id="mem-people" class="mem-list"></div></div>
+      <div class="card"><h3>Rooms</h3><div id="mem-rooms" class="mem-list"></div></div>
+    </section>
+
+    <!-- Playground -->
+    <section id="playground" class="page hidden">
+      <header class="page-head"><h2>Playground</h2><p class="muted">Chat with Mochi using your current settings. This uses real Flatkey calls.</p></header>
+      <div class="card chat">
+        <div id="pg-log" class="chat-log"></div>
+        <form id="pg-form" class="chat-input">
+          <label class="btn ghost small attach" title="Attach image">📎<input type="file" id="pg-file" accept="image/*" hidden /></label>
+          <input id="pg-text" placeholder="say hi to mochi…" autocomplete="off" />
+          <button class="btn primary" type="submit">Send</button>
+        </form>
+        <p id="pg-attached" class="muted small"></p>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toast" class="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
