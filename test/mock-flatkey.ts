@@ -57,6 +57,11 @@ export function startMockFlatkey(port = 0): Promise<{ url: string; calls: MockCa
       }
 
       // tool result came back → final answer using it
+      if (last?.role === "tool" && last.tool_call_id === "call_kb") {
+        const m = String(last.content).match(/\[1\] \(from "([^"]+)"\)\n([^\n]+)/);
+        const fb = sys.match(/reply with this message[^:]*: "([^"]+)"/);
+        return send({ choices: [{ message: { role: "assistant", content: m ? `From ${m[1]}: ${m[2]}` : (fb?.[1] ?? "not found") } }], usage });
+      }
       if (last?.role === "tool") {
         const r = JSON.parse(last.content);
         return send({ choices: [{ message: { role: "assistant", content: `Mochi: according to my search, ${r.answer ?? "no idea"}` } }], usage });
@@ -67,6 +72,15 @@ export function startMockFlatkey(port = 0): Promise<{ url: string; calls: MockCa
       if (/weather|news|latest/i.test(text) && body.tools?.length) {
         return send({ choices: [{ message: { role: "assistant", content: null, tool_calls: [{ id: "call_1", type: "function", function: { name: "web_search", arguments: JSON.stringify({ query: "weather today" }) } }] } }], usage });
       }
+      // Knowledge base: answer from the first injected passage, or the strict fallback.
+      const passage = sys.match(/\[1\] \(from "([^"]+)"\)\n([\s\S]*?)(?=\n\n\[2\]|\n\n## |$)/);
+      if (passage) return send({ choices: [{ message: { role: "assistant", content: `From ${passage[1]}: ${passage[2].replace(/\s+/g, " ").replace(/^# \S+ /, "")}` } }], usage });
+      const fallback = sys.match(/reply with this message[^:]*: "([^"]+)"/);
+      if (fallback && body.tools?.some((t: any) => t.function?.name === "search_knowledge") && last.role !== "tool") {
+        return send({ choices: [{ message: { role: "assistant", content: null, tool_calls: [{ id: "call_kb", type: "function", function: { name: "search_knowledge", arguments: JSON.stringify({ query: "refund" }) } }] } }], usage });
+      }
+      if (fallback) return send({ choices: [{ message: { role: "assistant", content: fallback[1] } }], usage });
+
       const remembers = sys.includes("Boba") ? " (and how is Boba the cat?)" : "";
       const reply = hasImage ? "ooh i can see your picture! cute ✨" : `hi! you said: ${text}${remembers}`;
       return send({ choices: [{ message: { role: "assistant", content: reply } }], usage });

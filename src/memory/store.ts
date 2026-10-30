@@ -4,6 +4,7 @@ import type { Platform } from "../core/types.ts";
 
 export interface StoredMessage {
   id: number;
+  botId: string;
   platform: Platform;
   roomId: string;
   userId: string;
@@ -15,6 +16,7 @@ export interface StoredMessage {
 }
 
 export interface Person {
+  botId: string;
   platform: Platform;
   userId: string;
   displayName: string;
@@ -27,6 +29,7 @@ export interface Person {
 }
 
 export interface Room {
+  botId: string;
   platform: Platform;
   roomId: string;
   title: string;
@@ -37,6 +40,7 @@ export interface Room {
 }
 
 export interface UsageRow {
+  botId: string;
   feature: string;
   model: string;
   calls: number;
@@ -44,55 +48,86 @@ export interface UsageRow {
   completionTokens: number;
 }
 
-/** Keep at most this many raw messages per room; older ones live on only as summaries. */
 const MAX_MESSAGES_PER_ROOM = 300;
 
 /**
- * Mochi's memory, in one SQLite file (Node's built-in node:sqlite, no native deps):
+ * Every bot's memory, in one SQLite file (Node's built-in node:sqlite, no native deps).
+ * All rows are scoped by bot_id: each bot remembers people and rooms on its own.
  * - messages: short-term chat history per room
  * - people:   long-term profile per person (personality, facts, interests)
  * - rooms:    rolling summary + recent topics per chat room
- * - usage:    token usage per feature/model, for the dashboard and budget
+ * - usage:    token usage per bot/feature/model, for the dashboard and budgets
+ * (Knowledge base tables live in knowledge/store.ts on the same database.)
  */
 export class MemoryStore {
   readonly db: DatabaseSync;
 
   constructor(dataDir: string) {
     this.db = new DatabaseSync(path.join(dataDir, "mochi.db"));
+    this.db.exec("PRAGMA journal_mode = WAL;");
+    this.migrateV1();
     this.db.exec(`
-      PRAGMA journal_mode = WAL;
       CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT, bot_id TEXT NOT NULL,
         platform TEXT NOT NULL, room_id TEXT NOT NULL,
         user_id TEXT NOT NULL, user_name TEXT NOT NULL,
         text TEXT NOT NULL, has_image INTEGER NOT NULL DEFAULT 0,
         is_bot INTEGER NOT NULL DEFAULT 0, ts INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_messages_room ON messages(platform, room_id, id);
+      CREATE INDEX IF NOT EXISTS idx_messages_room ON messages(bot_id, platform, room_id, id);
       CREATE TABLE IF NOT EXISTS people (
-        platform TEXT NOT NULL, user_id TEXT NOT NULL,
+        bot_id TEXT NOT NULL, platform TEXT NOT NULL, user_id TEXT NOT NULL,
         display_name TEXT NOT NULL, personality TEXT NOT NULL DEFAULT '',
         facts TEXT NOT NULL DEFAULT '[]', interests TEXT NOT NULL DEFAULT '[]',
         message_count INTEGER NOT NULL DEFAULT 0,
         first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL,
-        PRIMARY KEY (platform, user_id)
+        PRIMARY KEY (bot_id, platform, user_id)
       );
       CREATE TABLE IF NOT EXISTS rooms (
-        platform TEXT NOT NULL, room_id TEXT NOT NULL,
+        bot_id TEXT NOT NULL, platform TEXT NOT NULL, room_id TEXT NOT NULL,
         title TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL DEFAULT '',
         recent_topics TEXT NOT NULL DEFAULT '[]',
         msgs_since_update INTEGER NOT NULL DEFAULT 0,
         updated_at INTEGER NOT NULL DEFAULT 0,
-        PRIMARY KEY (platform, room_id)
+        PRIMARY KEY (bot_id, platform, room_id)
       );
       CREATE TABLE IF NOT EXISTS usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT, bot_id TEXT NOT NULL,
         day TEXT NOT NULL, ts INTEGER NOT NULL,
         feature TEXT NOT NULL, model TEXT NOT NULL,
         prompt_tokens INTEGER NOT NULL, completion_tokens INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_usage_day ON usage(day);
+      CREATE INDEX IF NOT EXISTS idx_usage_day ON usage(bot_id, day);
     `);
+  }
+
+  /** v0.1 had no bot_id. Rebuild those tables, assigning existing rows to bot "mochi". */
+  private migrateV1(): void {
+    const cols = this.db.prepare(`PRAGMA table_info(people)`).all() as any[];
+    if (!cols.length || cols.some((c) => c.name === "bot_id")) return;
+    this.db.exec(`
+      BEGIN;
+      ALTER TABLE messages RENAME TO messages_v1;
+      ALTER TABLE people RENAME TO people_v1;
+      ALTER TABLE rooms RENAME TO rooms_v1;
+      ALTER TABLE usage RENAME TO usage_v1;
+      DROP INDEX IF EXISTS idx_messages_room;
+      DROP INDEX IF EXISTS idx_usage_day;
+      COMMIT;
+    `);
+    // Recreate with the new schema, copy rows over, drop the old tables.
+    this.db.exec(`
+      CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, bot_id TEXT NOT NULL, platform TEXT NOT NULL, room_id TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL, text TEXT NOT NULL, has_image INTEGER NOT NULL DEFAULT 0, is_bot INTEGER NOT NULL DEFAULT 0, ts INTEGER NOT NULL);
+      CREATE TABLE people (bot_id TEXT NOT NULL, platform TEXT NOT NULL, user_id TEXT NOT NULL, display_name TEXT NOT NULL, personality TEXT NOT NULL DEFAULT '', facts TEXT NOT NULL DEFAULT '[]', interests TEXT NOT NULL DEFAULT '[]', message_count INTEGER NOT NULL DEFAULT 0, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, PRIMARY KEY (bot_id, platform, user_id));
+      CREATE TABLE rooms (bot_id TEXT NOT NULL, platform TEXT NOT NULL, room_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL DEFAULT '', recent_topics TEXT NOT NULL DEFAULT '[]', msgs_since_update INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (bot_id, platform, room_id));
+      CREATE TABLE usage (id INTEGER PRIMARY KEY AUTOINCREMENT, bot_id TEXT NOT NULL, day TEXT NOT NULL, ts INTEGER NOT NULL, feature TEXT NOT NULL, model TEXT NOT NULL, prompt_tokens INTEGER NOT NULL, completion_tokens INTEGER NOT NULL);
+      INSERT INTO messages (bot_id, platform, room_id, user_id, user_name, text, has_image, is_bot, ts) SELECT 'mochi', platform, room_id, user_id, user_name, text, has_image, is_bot, ts FROM messages_v1 ORDER BY id;
+      INSERT INTO people SELECT 'mochi', platform, user_id, display_name, personality, facts, interests, message_count, first_seen, last_seen FROM people_v1;
+      INSERT INTO rooms SELECT 'mochi', platform, room_id, title, summary, recent_topics, msgs_since_update, updated_at FROM rooms_v1;
+      INSERT INTO usage (bot_id, day, ts, feature, model, prompt_tokens, completion_tokens) SELECT 'mochi', day, ts, feature, model, prompt_tokens, completion_tokens FROM usage_v1;
+      DROP TABLE messages_v1; DROP TABLE people_v1; DROP TABLE rooms_v1; DROP TABLE usage_v1;
+    `);
+    console.log("[mochi] migrated memory database to multi-bot schema");
   }
 
   // ── messages ────────────────────────────────────────────────────
@@ -100,150 +135,170 @@ export class MemoryStore {
   addMessage(m: Omit<StoredMessage, "id">): void {
     this.db
       .prepare(
-        `INSERT INTO messages (platform, room_id, user_id, user_name, text, has_image, is_bot, ts)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO messages (bot_id, platform, room_id, user_id, user_name, text, has_image, is_bot, ts)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(m.platform, m.roomId, m.userId, m.userName, m.text, m.hasImage ? 1 : 0, m.isBot ? 1 : 0, m.ts);
+      .run(m.botId, m.platform, m.roomId, m.userId, m.userName, m.text, m.hasImage ? 1 : 0, m.isBot ? 1 : 0, m.ts);
     this.db
       .prepare(
-        `DELETE FROM messages WHERE platform = ? AND room_id = ? AND id NOT IN (
-           SELECT id FROM messages WHERE platform = ? AND room_id = ? ORDER BY id DESC LIMIT ?)`,
+        `DELETE FROM messages WHERE bot_id = ? AND platform = ? AND room_id = ? AND id NOT IN (
+           SELECT id FROM messages WHERE bot_id = ? AND platform = ? AND room_id = ? ORDER BY id DESC LIMIT ?)`,
       )
-      .run(m.platform, m.roomId, m.platform, m.roomId, MAX_MESSAGES_PER_ROOM);
+      .run(m.botId, m.platform, m.roomId, m.botId, m.platform, m.roomId, MAX_MESSAGES_PER_ROOM);
   }
 
-  recentMessages(platform: Platform, roomId: string, limit: number): StoredMessage[] {
+  recentMessages(botId: string, platform: Platform, roomId: string, limit: number): StoredMessage[] {
     const rows = this.db
-      .prepare(`SELECT * FROM messages WHERE platform = ? AND room_id = ? ORDER BY id DESC LIMIT ?`)
-      .all(platform, roomId, limit) as any[];
+      .prepare(`SELECT * FROM messages WHERE bot_id = ? AND platform = ? AND room_id = ? ORDER BY id DESC LIMIT ?`)
+      .all(botId, platform, roomId, limit) as any[];
     return rows.reverse().map(rowToMessage);
   }
 
   // ── people ──────────────────────────────────────────────────────
 
-  touchPerson(platform: Platform, userId: string, displayName: string, ts: number): void {
+  touchPerson(botId: string, platform: Platform, userId: string, displayName: string, ts: number): void {
     this.db
       .prepare(
-        `INSERT INTO people (platform, user_id, display_name, message_count, first_seen, last_seen)
-         VALUES (?, ?, ?, 1, ?, ?)
-         ON CONFLICT(platform, user_id) DO UPDATE SET
+        `INSERT INTO people (bot_id, platform, user_id, display_name, message_count, first_seen, last_seen)
+         VALUES (?, ?, ?, ?, 1, ?, ?)
+         ON CONFLICT(bot_id, platform, user_id) DO UPDATE SET
            display_name = excluded.display_name,
            message_count = message_count + 1,
            last_seen = excluded.last_seen`,
       )
-      .run(platform, userId, displayName, ts, ts);
+      .run(botId, platform, userId, displayName, ts, ts);
   }
 
-  getPerson(platform: Platform, userId: string): Person | undefined {
-    const r = this.db.prepare(`SELECT * FROM people WHERE platform = ? AND user_id = ?`).get(platform, userId);
+  getPerson(botId: string, platform: Platform, userId: string): Person | undefined {
+    const r = this.db
+      .prepare(`SELECT * FROM people WHERE bot_id = ? AND platform = ? AND user_id = ?`)
+      .get(botId, platform, userId);
     return r ? rowToPerson(r) : undefined;
   }
 
-  getPeople(platform: Platform, userIds: string[]): Person[] {
-    return userIds.map((id) => this.getPerson(platform, id)).filter((p): p is Person => Boolean(p));
+  getPeople(botId: string, platform: Platform, userIds: string[]): Person[] {
+    return userIds.map((id) => this.getPerson(botId, platform, id)).filter((p): p is Person => Boolean(p));
   }
 
   updatePersonProfile(
+    botId: string,
     platform: Platform,
     userId: string,
     patch: { personality?: string; facts?: string[]; interests?: string[] },
   ): void {
-    const p = this.getPerson(platform, userId);
+    const p = this.getPerson(botId, platform, userId);
     if (!p) return;
     this.db
-      .prepare(`UPDATE people SET personality = ?, facts = ?, interests = ? WHERE platform = ? AND user_id = ?`)
+      .prepare(
+        `UPDATE people SET personality = ?, facts = ?, interests = ? WHERE bot_id = ? AND platform = ? AND user_id = ?`,
+      )
       .run(
         (patch.personality ?? p.personality).slice(0, 500),
         JSON.stringify((patch.facts ?? p.facts).slice(0, 15)),
         JSON.stringify((patch.interests ?? p.interests).slice(0, 10)),
+        botId,
         platform,
         userId,
       );
   }
 
-  listPeople(limit = 200): Person[] {
-    return (this.db.prepare(`SELECT * FROM people ORDER BY last_seen DESC LIMIT ?`).all(limit) as any[]).map(
-      rowToPerson,
-    );
+  listPeople(botId: string, limit = 200): Person[] {
+    return (
+      this.db.prepare(`SELECT * FROM people WHERE bot_id = ? ORDER BY last_seen DESC LIMIT ?`).all(botId, limit) as any[]
+    ).map(rowToPerson);
   }
 
-  /** Remove everything Mochi knows about a person (profile + their raw messages). */
-  forgetPerson(platform: Platform, userId: string): void {
-    this.db.prepare(`DELETE FROM people WHERE platform = ? AND user_id = ?`).run(platform, userId);
-    this.db.prepare(`DELETE FROM messages WHERE platform = ? AND user_id = ?`).run(platform, userId);
+  forgetPerson(botId: string, platform: Platform, userId: string): void {
+    this.db.prepare(`DELETE FROM people WHERE bot_id = ? AND platform = ? AND user_id = ?`).run(botId, platform, userId);
+    this.db.prepare(`DELETE FROM messages WHERE bot_id = ? AND platform = ? AND user_id = ?`).run(botId, platform, userId);
   }
 
   // ── rooms ───────────────────────────────────────────────────────
 
-  /** Record a new message in a room; returns how many messages arrived since the last memory update. */
-  bumpRoom(platform: Platform, roomId: string, title: string | undefined): number {
+  bumpRoom(botId: string, platform: Platform, roomId: string, title: string | undefined): number {
     this.db
       .prepare(
-        `INSERT INTO rooms (platform, room_id, title, msgs_since_update) VALUES (?, ?, ?, 1)
-         ON CONFLICT(platform, room_id) DO UPDATE SET
+        `INSERT INTO rooms (bot_id, platform, room_id, title, msgs_since_update) VALUES (?, ?, ?, ?, 1)
+         ON CONFLICT(bot_id, platform, room_id) DO UPDATE SET
            msgs_since_update = msgs_since_update + 1,
            title = CASE WHEN excluded.title != '' THEN excluded.title ELSE title END`,
       )
-      .run(platform, roomId, title ?? "");
-    return this.getRoom(platform, roomId)?.msgsSinceUpdate ?? 0;
+      .run(botId, platform, roomId, title ?? "");
+    return this.getRoom(botId, platform, roomId)?.msgsSinceUpdate ?? 0;
   }
 
-  getRoom(platform: Platform, roomId: string): Room | undefined {
-    const r = this.db.prepare(`SELECT * FROM rooms WHERE platform = ? AND room_id = ?`).get(platform, roomId);
+  getRoom(botId: string, platform: Platform, roomId: string): Room | undefined {
+    const r = this.db
+      .prepare(`SELECT * FROM rooms WHERE bot_id = ? AND platform = ? AND room_id = ?`)
+      .get(botId, platform, roomId);
     return r ? rowToRoom(r) : undefined;
   }
 
-  updateRoomMemory(platform: Platform, roomId: string, summary: string, topics: string[]): void {
+  updateRoomMemory(botId: string, platform: Platform, roomId: string, summary: string, topics: string[]): void {
     this.db
       .prepare(
         `UPDATE rooms SET summary = ?, recent_topics = ?, msgs_since_update = 0, updated_at = ?
-         WHERE platform = ? AND room_id = ?`,
+         WHERE bot_id = ? AND platform = ? AND room_id = ?`,
       )
-      .run(summary.slice(0, 1500), JSON.stringify(topics.slice(0, 8)), Date.now(), platform, roomId);
+      .run(summary.slice(0, 1500), JSON.stringify(topics.slice(0, 8)), Date.now(), botId, platform, roomId);
   }
 
-  resetRoomCounter(platform: Platform, roomId: string): void {
-    this.db.prepare(`UPDATE rooms SET msgs_since_update = 0 WHERE platform = ? AND room_id = ?`).run(platform, roomId);
+  resetRoomCounter(botId: string, platform: Platform, roomId: string): void {
+    this.db
+      .prepare(`UPDATE rooms SET msgs_since_update = 0 WHERE bot_id = ? AND platform = ? AND room_id = ?`)
+      .run(botId, platform, roomId);
   }
 
-  listRooms(limit = 200): Room[] {
-    return (this.db.prepare(`SELECT * FROM rooms ORDER BY updated_at DESC LIMIT ?`).all(limit) as any[]).map(
-      rowToRoom,
-    );
+  listRooms(botId: string, limit = 200): Room[] {
+    return (
+      this.db.prepare(`SELECT * FROM rooms WHERE bot_id = ? ORDER BY updated_at DESC LIMIT ?`).all(botId, limit) as any[]
+    ).map(rowToRoom);
   }
 
-  forgetRoom(platform: Platform, roomId: string): void {
-    this.db.prepare(`DELETE FROM rooms WHERE platform = ? AND room_id = ?`).run(platform, roomId);
-    this.db.prepare(`DELETE FROM messages WHERE platform = ? AND room_id = ?`).run(platform, roomId);
+  forgetRoom(botId: string, platform: Platform, roomId: string): void {
+    this.db.prepare(`DELETE FROM rooms WHERE bot_id = ? AND platform = ? AND room_id = ?`).run(botId, platform, roomId);
+    this.db.prepare(`DELETE FROM messages WHERE bot_id = ? AND platform = ? AND room_id = ?`).run(botId, platform, roomId);
+  }
+
+  /** Remove everything a deleted bot remembered. */
+  forgetBot(botId: string): void {
+    for (const t of ["messages", "people", "rooms", "usage"]) this.db.prepare(`DELETE FROM ${t} WHERE bot_id = ?`).run(botId);
   }
 
   // ── usage ───────────────────────────────────────────────────────
 
-  recordUsage(feature: string, model: string, promptTokens: number, completionTokens: number): void {
+  recordUsage(botId: string, feature: string, model: string, promptTokens: number, completionTokens: number): void {
     const now = new Date();
     this.db
       .prepare(
-        `INSERT INTO usage (day, ts, feature, model, prompt_tokens, completion_tokens) VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO usage (bot_id, day, ts, feature, model, prompt_tokens, completion_tokens) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(now.toISOString().slice(0, 10), now.getTime(), feature, model, promptTokens, completionTokens);
+      .run(botId, now.toISOString().slice(0, 10), now.getTime(), feature, model, promptTokens, completionTokens);
   }
 
-  tokensToday(): number {
-    const r = this.db
-      .prepare(`SELECT COALESCE(SUM(prompt_tokens + completion_tokens), 0) AS t FROM usage WHERE day = ?`)
-      .get(new Date().toISOString().slice(0, 10)) as any;
+  tokensToday(botId?: string): number {
+    const day = new Date().toISOString().slice(0, 10);
+    const r = (
+      botId
+        ? this.db.prepare(`SELECT COALESCE(SUM(prompt_tokens + completion_tokens), 0) AS t FROM usage WHERE day = ? AND bot_id = ?`).get(day, botId)
+        : this.db.prepare(`SELECT COALESCE(SUM(prompt_tokens + completion_tokens), 0) AS t FROM usage WHERE day = ?`).get(day)
+    ) as any;
     return Number(r?.t ?? 0);
   }
 
-  usageSince(dayInclusive: string): UsageRow[] {
+  /** Usage since a day, optionally for one bot. */
+  usageSince(dayInclusive: string, botId?: string): UsageRow[] {
+    const where = botId ? "day >= ? AND bot_id = ?" : "day >= ?";
+    const args = botId ? [dayInclusive, botId] : [dayInclusive];
     return (
       this.db
         .prepare(
-          `SELECT feature, model, COUNT(*) AS calls, SUM(prompt_tokens) AS p, SUM(completion_tokens) AS c
-           FROM usage WHERE day >= ? GROUP BY feature, model ORDER BY (p + c) DESC`,
+          `SELECT bot_id, feature, model, COUNT(*) AS calls, SUM(prompt_tokens) AS p, SUM(completion_tokens) AS c
+           FROM usage WHERE ${where} GROUP BY bot_id, feature, model ORDER BY (p + c) DESC`,
         )
-        .all(dayInclusive) as any[]
+        .all(...args) as any[]
     ).map((r) => ({
+      botId: r.bot_id,
       feature: r.feature,
       model: r.model,
       calls: Number(r.calls),
@@ -252,14 +307,20 @@ export class MemoryStore {
     }));
   }
 
-  usageByDay(sinceDay: string): { day: string; tokens: number }[] {
+  usageByDay(sinceDay: string, botId?: string): { day: string; tokens: number }[] {
+    const where = botId ? "day >= ? AND bot_id = ?" : "day >= ?";
+    const args = botId ? [sinceDay, botId] : [sinceDay];
     return (
       this.db
-        .prepare(
-          `SELECT day, SUM(prompt_tokens + completion_tokens) AS t FROM usage WHERE day >= ? GROUP BY day ORDER BY day`,
-        )
-        .all(sinceDay) as any[]
+        .prepare(`SELECT day, SUM(prompt_tokens + completion_tokens) AS t FROM usage WHERE ${where} GROUP BY day ORDER BY day`)
+        .all(...args) as any[]
     ).map((r) => ({ day: r.day, tokens: Number(r.t) }));
+  }
+
+  counts(botId: string): { people: number; rooms: number } {
+    const p = this.db.prepare(`SELECT COUNT(*) AS n FROM people WHERE bot_id = ?`).get(botId) as any;
+    const r = this.db.prepare(`SELECT COUNT(*) AS n FROM rooms WHERE bot_id = ?`).get(botId) as any;
+    return { people: Number(p.n), rooms: Number(r.n) };
   }
 
   close(): void {
@@ -279,6 +340,7 @@ const parseList = (s: string): string[] => {
 function rowToMessage(r: any): StoredMessage {
   return {
     id: Number(r.id),
+    botId: r.bot_id,
     platform: r.platform,
     roomId: r.room_id,
     userId: r.user_id,
@@ -292,6 +354,7 @@ function rowToMessage(r: any): StoredMessage {
 
 function rowToPerson(r: any): Person {
   return {
+    botId: r.bot_id,
     platform: r.platform,
     userId: r.user_id,
     displayName: r.display_name,
@@ -306,6 +369,7 @@ function rowToPerson(r: any): Person {
 
 function rowToRoom(r: any): Room {
   return {
+    botId: r.bot_id,
     platform: r.platform,
     roomId: r.room_id,
     title: r.title,

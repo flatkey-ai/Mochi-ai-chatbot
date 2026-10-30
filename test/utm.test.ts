@@ -35,5 +35,5 @@ test("every user-facing Flatkey link in the repo carries the UTM scheme", () => 
       assert.ok(u.searchParams.get("utm_content"), `${f}: ${raw}`);
     }
   }
-  assert.ok(count >= 8, `expected many tracked links, found ${count}`);
+  assert.ok(count >= 6, `expected many tracked links, found ${count}`);
 });

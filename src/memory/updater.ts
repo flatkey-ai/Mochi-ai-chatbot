@@ -1,5 +1,5 @@
 import type { FlatkeyClient } from "../flatkey/client.ts";
-import type { Settings } from "../core/settings.ts";
+import type { BotRegistry } from "../core/bots.ts";
 import type { Platform } from "../core/types.ts";
 import type { MemoryStore } from "./store.ts";
 
@@ -30,31 +30,32 @@ export class MemoryUpdater {
   constructor(
     private readonly flatkey: FlatkeyClient,
     private readonly store: MemoryStore,
-    private readonly getSettings: () => Settings,
+    private readonly bots: BotRegistry,
   ) {}
 
   /** Call after each stored message. Fires an update in the background when the room is due. */
-  maybeUpdate(platform: Platform, roomId: string, msgsSinceUpdate: number): void {
-    const s = this.getSettings();
-    if (!s.features.memory) return;
+  maybeUpdate(botId: string, platform: Platform, roomId: string, msgsSinceUpdate: number): void {
+    const s = this.bots.get(botId);
+    if (!s || !s.features.memory || !this.flatkey.hasKey()) return;
     if (msgsSinceUpdate < s.limits.memoryUpdateEvery) return;
-    const key = `${platform}:${roomId}`;
+    const key = `${botId}:${platform}:${roomId}`;
     if (this.running.has(key)) return;
     this.running.add(key);
-    this.update(platform, roomId)
+    this.update(botId, platform, roomId)
       .catch((err) => console.warn(`[memory] update failed for ${key}:`, err?.message ?? err))
       .finally(() => this.running.delete(key));
   }
 
-  async update(platform: Platform, roomId: string): Promise<void> {
-    const s = this.getSettings();
-    const room = this.store.getRoom(platform, roomId);
+  async update(botId: string, platform: Platform, roomId: string): Promise<void> {
+    const s = this.bots.get(botId);
+    if (!s) return;
+    const room = this.store.getRoom(botId, platform, roomId);
     const n = Math.max(room?.msgsSinceUpdate ?? 0, s.limits.memoryUpdateEvery);
-    const msgs = this.store.recentMessages(platform, roomId, Math.min(n + 4, 80));
+    const msgs = this.store.recentMessages(botId, platform, roomId, Math.min(n + 4, 80));
     if (msgs.length === 0) return;
 
     const humanIds = [...new Set(msgs.filter((m) => !m.isBot).map((m) => m.userId))];
-    const people = this.store.getPeople(platform, humanIds);
+    const people = this.store.getPeople(botId, platform, humanIds);
 
     const input = {
       previous_room_summary: room?.summary ?? "",
@@ -74,7 +75,7 @@ export class MemoryUpdater {
     };
 
     // Reset first so a burst of messages doesn't queue duplicate updates if this one is slow.
-    this.store.resetRoomCounter(platform, roomId);
+    this.store.resetRoomCounter(botId, platform, roomId);
 
     const { message, usage } = await this.flatkey.chat({
       model: s.models.memory,
@@ -86,13 +87,14 @@ export class MemoryUpdater {
       temperature: 0.2,
       jsonMode: true,
     });
-    this.store.recordUsage("memory", s.models.memory, usage.promptTokens, usage.completionTokens);
+    this.store.recordUsage(botId, "memory", s.models.memory, usage.promptTokens, usage.completionTokens);
 
     const parsed = parseJsonLoose(typeof message.content === "string" ? message.content : "");
     if (!parsed) return;
 
     const r = parsed.room ?? {};
     this.store.updateRoomMemory(
+      botId,
       platform,
       roomId,
       typeof r.summary === "string" ? r.summary : (room?.summary ?? ""),
@@ -103,7 +105,7 @@ export class MemoryUpdater {
     for (const p of Array.isArray(parsed.people) ? parsed.people : []) {
       const id = String(p?.user_id ?? "");
       if (!allowed.has(id)) continue;
-      this.store.updatePersonProfile(platform, id, {
+      this.store.updatePersonProfile(botId, platform, id, {
         personality: typeof p.personality === "string" ? p.personality : undefined,
         facts: Array.isArray(p.facts) ? p.facts.map(String) : undefined,
         interests: Array.isArray(p.interests) ? p.interests.map(String) : undefined,

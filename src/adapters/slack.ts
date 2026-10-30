@@ -20,6 +20,7 @@ export class SlackAdapter implements PlatformAdapter {
   private channelNames = new Map<string, string>();
 
   constructor(
+    readonly botId: string,
     private readonly botToken: string,
     private readonly appToken: string,
     private readonly brain: Brain,
@@ -47,6 +48,7 @@ export class SlackAdapter implements PlatformAdapter {
       }
 
       const reply = await this.brain.handle({
+        botId: this.botId,
         platform: "slack",
         roomId: m.channel,
         roomName: isDirect ? undefined : await this.channelName(client, m.channel),

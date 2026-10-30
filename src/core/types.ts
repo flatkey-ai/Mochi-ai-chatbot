@@ -8,6 +8,8 @@ export interface ImageInput {
 
 /** A platform-agnostic incoming chat message. Every adapter converts to this shape. */
 export interface IncomingMessage {
+  /** Which of your bots received this message. */
+  botId: string;
   platform: Platform;
   roomId: string;
   roomName?: string;
@@ -25,10 +27,13 @@ export interface BotReply {
   text: string;
   usedSearch: boolean;
   usedVision: boolean;
+  /** Knowledge base documents the answer drew on. */
+  usedKnowledge?: { docId: number; title: string }[];
 }
 
 export interface PlatformAdapter {
   readonly platform: Platform;
+  readonly botId: string;
   start(): Promise<void>;
   stop(): Promise<void>;
   status(): { running: boolean; detail?: string };

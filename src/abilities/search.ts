@@ -1,5 +1,5 @@
 import type { FlatkeyClient } from "../flatkey/client.ts";
-import type { Settings } from "../core/settings.ts";
+import type { BotSettings } from "../core/bots.ts";
 
 export interface SearchSource {
   title: string;
@@ -26,13 +26,9 @@ const INSTRUCTION =
  * If the configured mode fails, the other one is tried once.
  */
 export class SearchAbility {
-  constructor(
-    private readonly flatkey: FlatkeyClient,
-    private readonly getSettings: () => Settings,
-  ) {}
+  constructor(private readonly flatkey: FlatkeyClient) {}
 
-  async search(query: string): Promise<SearchResult> {
-    const s = this.getSettings();
+  async search(query: string, s: Pick<BotSettings, "search" | "models">): Promise<SearchResult> {
     const primary = s.search.mode;
     try {
       return await this.run(primary, s.models.search, query);

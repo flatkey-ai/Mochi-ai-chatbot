@@ -14,6 +14,7 @@ export class TelegramAdapter implements PlatformAdapter {
   private running = false;
 
   constructor(
+    readonly botId: string,
     private readonly token: string,
     private readonly brain: Brain,
   ) {}
@@ -22,8 +23,8 @@ export class TelegramAdapter implements PlatformAdapter {
     const bot = new Bot(this.token);
     await bot.init();
     const me = bot.botInfo;
-    bot.on(["message:text", "message:photo"], (ctx) => void this.onMessage(ctx, me.id, me.username).catch((e) => console.error("[telegram]", e)));
-    bot.catch((err) => console.error("[telegram]", err.message));
+    bot.on(["message:text", "message:photo"], (ctx) => void this.onMessage(ctx, me.id, me.username).catch((e) => console.error(`[telegram:${this.botId}]`, e)));
+    bot.catch((err) => console.error(`[telegram:${this.botId}]`, err.message));
     this.bot = bot;
     this.detail = `@${me.username}`;
     this.running = true;
@@ -32,13 +33,13 @@ export class TelegramAdapter implements PlatformAdapter {
     });
   }
 
-  private async onMessage(ctx: Context, botId: number, username: string): Promise<void> {
+  private async onMessage(ctx: Context, tgBotId: number, username: string): Promise<void> {
     const m = ctx.message;
     if (!m || !m.from || m.from.is_bot) return;
     const raw = m.text ?? m.caption ?? "";
     const isDirect = m.chat.type === "private";
     const mentionsBot =
-      raw.toLowerCase().includes(`@${username.toLowerCase()}`) || m.reply_to_message?.from?.id === botId;
+      raw.toLowerCase().includes(`@${username.toLowerCase()}`) || m.reply_to_message?.from?.id === tgBotId;
 
     const images: ImageInput[] = [];
     if (m.photo?.length) {
@@ -53,6 +54,7 @@ export class TelegramAdapter implements PlatformAdapter {
     if (isDirect || mentionsBot) void ctx.replyWithChatAction("typing").catch(() => {});
     const from = m.from;
     const reply = await this.brain.handle({
+      botId: this.botId,
       platform: "telegram",
       roomId: String(m.chat.id),
       roomName: "title" in m.chat ? m.chat.title : undefined,

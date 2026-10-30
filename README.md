@@ -2,8 +2,8 @@
 
 # 🍡 Mochi
 
-**Your own AI chat buddy for Discord, Telegram, Slack and your website.**
-She remembers people, looks things up, reads images, and you control every cent she spends.
+**Build your own AI chatbots for Discord, Telegram, Slack and your website.**
+Companions that remember people, Q&A bots that answer from your docs, and a dashboard that controls every cent they spend.
 
 Powered by [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_header): **Official models. Better prices.**
 
@@ -11,31 +11,34 @@ Powered by [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&
 
 ---
 
-Mochi is an open-source chatbot you can deploy in minutes with one [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_intro) API key. Pick any model on Flatkey for each job (chat, vision, memory, search), switch abilities on or off from a dashboard, and set a daily budget so costs never surprise you.
+Mochi is an open-source chatbot platform you can deploy in minutes with one [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_intro) API key. Create as many bots as you like. Give each one a persona and description, a knowledge base, its own channels and its own budget, all from a dashboard and without touching code.
+
+![Your bots](docs/bots.png)
 
 ## Why Mochi runs on Flatkey
 
-A good chatbot isn't one model. Mochi uses **four kinds of model calls**: chat, vision to read images, web search, and a small, inexpensive model that keeps her memory up to date. Going direct means a separate account, API key, balance and invoice for each provider. That's why Mochi is built on an AI API gateway, and why it runs on Flatkey only.
+A good chatbot isn't one model. Each Mochi bot uses **several kinds of model calls**: chat, vision to read images, web search, and a small, inexpensive model that keeps its memory up to date. Going direct means a separate account, API key, balance and invoice for each provider. That's why Mochi is built on an AI API gateway, and why it runs on Flatkey only.
 
 | | |
 |---|---|
 | 💸 **Save money** | Mainstream models like GPT, Claude, DeepSeek, Kimi and GLM are **at least 20% below official pricing**. They're the same official models, at the same quality as calling each provider directly. Failed calls cost $0. |
-| ⏱️ **Save time** | **One key, one balance, one bill** for 100+ models, across text, image, video and audio. No signing up with every provider your bot touches. |
-| 🔀 **Switch freely** | Change the model behind any ability from the dashboard in one click. No new signup, no code change. |
+| ⏱️ **Save time** | **One key, one balance, one bill** for 100+ models, across text, image, video and audio, for every bot you run. No signing up with every provider your bots touch. |
+| 🔀 **Switch freely** | Change the model behind any ability, for any bot, from the dashboard in one click. No new signup, no code change. |
 
 **Official models. Better prices.** [Get your Flatkey key →](https://console.flatkey.ai/keys?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_why)
 
-![Mochi dashboard](docs/overview.png)
+## What you get
 
-## What she can do
-
-| | Ability | How it works |
+| | Feature | How it works |
 |---|---|---|
-| 🧠 | **Memory** | Remembers each person in a chat room (personality, things they've shared, interests) and what each room has been talking about. A cheap background model updates memory every N messages, so the main chat model never re-reads long histories. |
-| 💬 | **Chat** | Natural group-chat persona. Replies in DMs, when @mentioned, when her name comes up, or (optionally) chimes in at random. |
-| 🔎 | **Web search** | When she isn't sure about a fact, she searches the live web through Flatkey and answers with sources. No separate search API key needed. |
-| 🖼️ | **Image reading** | Reads images people send (screenshots, memes, photos) using a vision model you choose. |
-| 🎛️ | **Dashboard** | Choose models from your Flatkey catalog, toggle abilities, set limits and a daily token budget, see usage per ability, browse and delete memory, and test her in a playground. |
+| 🤖 | **Multiple bots** | Run a group-chat companion, a support bot and a study buddy on one server. Each has its own persona, knowledge, channels, memory, models and daily budget. Start from a preset or from scratch. |
+| 🎭 | **Persona & description** | Name, avatar, color, public description, greeting, personality, tone, emoji level, reply length, language, backstory and rules. You can also write the whole prompt yourself. The description is synced to your Telegram and Discord bot profiles. |
+| 📚 | **Knowledge base** | Make a Q&A bot by uploading docs (PDF, Word, Markdown, text, CSV, JSON, HTML), pasting text or importing a web page. Turn on *only answer from the knowledge base* and the bot never guesses. |
+| 🔌 | **Channels** | Connect Discord, Telegram and Slack from the dashboard. Tokens are verified with each platform before saving, and each bot gets a one-line website widget. |
+| 🧠 | **Memory** | Remembers each person in a chat (personality, things they've shared, interests) and what each room talks about. A small background model updates it every N messages. |
+| 🔎 | **Web search** | Looks up facts it isn't sure about through Flatkey and answers with sources. No separate search API key needed. |
+| 🖼️ | **Image reading** | Reads screenshots, memes and photos with a vision model you choose. |
+| 🎛️ | **Cost control** | Pick a model per job, toggle abilities, set limits and a daily token budget per bot, and see usage per bot, ability and model. |
 
 ## Quick start
 
@@ -49,104 +52,100 @@ cp .env.example .env      # set a strong ADMIN_TOKEN
 npm start
 ```
 
-Open **http://localhost:3000/dashboard** and enter your `ADMIN_TOKEN`. You'll land on **Flatkey API key**:
+Open **http://localhost:3000/dashboard** and enter your `ADMIN_TOKEN`.
 
-1. Click **Create a key on Flatkey** ([or open it here](https://console.flatkey.ai/keys?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_quickstart)), then sign in or sign up and copy a new key.
-2. Paste it and click **Bind key**. Mochi verifies it with Flatkey and stores it only on your server.
-3. Say hi in the **Playground**.
+1. **Bind your Flatkey key.** You'll land on **Flatkey API key**. Click **Create a key on Flatkey** ([or open it here](https://console.flatkey.ai/keys?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_quickstart)), copy the key, paste it and click **Bind key**. Mochi verifies it with Flatkey and stores it only on your server.
+2. **Meet Mochi**, your first bot, or click **New bot** and pick a preset: *Group-chat companion*, *Q&A / support bot*, *Study buddy* or *Blank*.
+3. **Make it yours** in **Persona**: name, avatar, description, personality, tone and rules. A live preview shows exactly what the bot is told.
+4. **Teach it** in **Knowledge base** (optional, and the core of a Q&A bot).
+5. **Connect it** in **Channels**: paste a Discord, Telegram or Slack token, or copy the website snippet.
+6. **Try it** in **Playground**.
+
+New to Flatkey? [Sign up here](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_quickstart).
 
 ![Bind your Flatkey API key](docs/bind-key.png)
 
-Prefer config files? Set `FLATKEY_API_KEY` in `.env` instead. A key bound in the dashboard takes precedence.
+## Persona
 
-Then connect the platforms you want:
+![Persona editor](docs/persona.png)
 
-<details>
-<summary><b>🎮 Discord</b></summary>
+Everything that makes a bot *that* bot lives here:
 
-1. Create an app at <https://discord.com/developers/applications> → **Bot** → copy the token into `DISCORD_BOT_TOKEN`.
-2. On the same page, turn on **Message Content Intent**. Mochi needs it to read group chats for memory.
-3. **OAuth2 → URL Generator**: scopes `bot`; permissions *Read Messages/View Channels*, *Send Messages*, *Read Message History*. Open the URL to invite her.
-</details>
+- **Identity:** name, emoji avatar, accent color, a public **description** and the website **greeting**.
+- **Type:** *Companion* (chats, remembers people, joins conversations) or *Q&A / support* (answers from your knowledge base). Switching type applies sensible defaults, which you can still change.
+- **Personality:** traits, tone (playful, friendly, professional, sassy, calm), emoji level, reply length, language, backstory and **rules** (do's and don'ts, topics to avoid, when to hand off to a human).
+- **Advanced:** write the whole system prompt yourself.
+- **When to reply:** DMs, @mentions, its name or nicknames, or a random chime-in chance in groups.
 
-<details>
-<summary><b>✈️ Telegram</b></summary>
+The description is pushed to your bot's **Telegram** profile (description and short description) and **Discord** application description whenever you change it.
 
-1. Talk to [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token into `TELEGRAM_BOT_TOKEN`.
-2. For group memory: BotFather → your bot → **Bot Settings → Group Privacy → Turn off**.
-3. Add the bot to a group. She replies when @mentioned, replied to, or called by name.
-</details>
+## Knowledge base (Q&A bots)
 
-<details>
-<summary><b>💼 Slack</b></summary>
+![Knowledge base](docs/knowledge.png)
 
-1. Create an app at <https://api.slack.com/apps> → enable **Socket Mode** → create an app-level token with `connections:write` → `SLACK_APP_TOKEN` (`xapp-…`).
-2. **OAuth & Permissions → Bot Token Scopes**: `app_mentions:read`, `channels:history`, `groups:history`, `im:history`, `chat:write`, `users:read`, `files:read`, `channels:read`.
-3. **Event Subscriptions → Subscribe to bot events**: `message.channels`, `message.groups`, `message.im`.
-4. Install to your workspace → copy the bot token into `SLACK_BOT_TOKEN` (`xoxb-…`). Invite her to channels with `/invite @Mochi`.
-</details>
+- **Add** files (`.pdf .docx .md .txt .csv .json .html`), pasted text, or a public web page.
+- **Only answer from the knowledge base:** the bot answers strictly from your documents. If they don't cover the question, it replies with your fallback message, in the user's language. Web search is off in this mode.
+- **Test retrieval:** see which passages a question would pull up, without calling any model.
+- Search uses SQLite full-text search with a trigram index. It works for English, Chinese, Japanese, Korean and more, needs no embedding calls and adds no cost. The bot also gets a `search_knowledge` tool, so it can look things up again with different keywords.
 
-<details>
-<summary><b>🌐 Website widget</b></summary>
+## Channels
 
-Add one line before `</body>`:
+![Channels](docs/channels.png)
+
+Each bot connects to its own accounts. The dashboard walks you through each platform, verifies the token with the platform before saving it, then starts the bot right away. Use the toggles to pause and resume, or **Disconnect** to remove a token.
+
+| Platform | What you paste | Notes |
+|---|---|---|
+| 🎮 Discord | Bot token | Turn on **Message Content Intent** (Mochi checks for it). You'll get an invite link. |
+| ✈️ Telegram | Token from [@BotFather](https://t.me/BotFather) | For group memory, turn **Group Privacy** off. |
+| 💼 Slack | Bot token (`xoxb-`) + app-level token (`xapp-`) | Socket Mode, so no public URL needed. The dashboard lists the scopes. |
+| 🌐 Website | Nothing | Copy the one-line snippet. Restrict it to your domains under **Allowed sites**. |
 
 ```html
-<script src="https://YOUR-MOCHI-SERVER/widget/widget.js" data-server="https://YOUR-MOCHI-SERVER" defer></script>
+<script src="https://YOUR-MOCHI-SERVER/widget/widget.js" data-server="https://YOUR-MOCHI-SERVER" data-bot="BOT_ID" defer></script>
 ```
 
-Optional attributes: `data-title`, `data-color="#ff6fae"`, `data-greeting`. Restrict which sites can embed it under **Dashboard → Platforms → Allowed origins**. Try it locally at `http://localhost:3000/widget/demo.html`.
+The widget takes its name, avatar, color, description and greeting from the bot's persona.
 
-<img src="docs/widget.png" width="560" alt="Mochi website widget" />
-</details>
+<img src="docs/widget.png" width="560" alt="Website widget" />
 
-Restart after adding tokens. After that, platforms can be switched on and off live from the dashboard.
+> Prefer config files? `DISCORD_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN`, `SLACK_BOT_TOKEN` + `SLACK_APP_TOKEN` and `FLATKEY_API_KEY` in `.env` still work. Channel tokens there apply to your first bot.
 
 ## Control your costs
 
-![Abilities & cost control](docs/abilities.png)
+Every call goes through your one Flatkey balance. For each bot, under **Models & abilities**:
 
-Every call goes through your one Flatkey balance, and every lever is on the **Abilities & cost** page:
-
-- **Pick a model per job.** Use a strong model for chat and a small one for background memory. Popular choices on Flatkey include GPT, Claude, DeepSeek, Kimi and GLM.
-- **Toggle abilities.** Memory, search and vision each add calls; turn off what you don't need. Changes apply instantly.
-- **Daily token budget.** Once it's reached, Mochi politely goes quiet until the next UTC day, with no further calls.
+- **Pick a model per job.** Use a strong model for chat and a small one for background memory.
+- **Toggle abilities.** Memory, search and image reading each add calls; turn off what you don't need. Changes apply instantly.
+- **Daily token budget.** Once it's reached, the bot politely goes quiet until the next UTC day, with no further calls.
 - **Limits.** Reply length, history length, memory update frequency, searches per reply, images per message.
-- **Usage view.** Tokens per ability and model per day. Add per-model prices to see estimated cost.
+
+**Usage & cost** shows tokens per day, broken down by bot, ability and model. Add per-model prices to see estimated spend.
 
 | Ability | Extra cost when on |
 |---|---|
 | Memory | 1 memory-model call per room every N messages (default 12) |
-| Search | 1 search-model call per search (max per reply is configurable) |
-| Vision | Image input tokens on the vision model, only for messages with images |
+| Web search | 1 search-model call per search (max per reply is configurable) |
+| Image reading | Image input tokens on the vision model, only for messages with images |
+| Knowledge base | None for retrieval. Matching passages add a few hundred prompt tokens. |
 
-## How memory works
+## How a reply is built
 
 ```
-message ─▶ stored in room history ─▶ reply? (DM / @mention / name / random)
-                │                              │
-                │ every N msgs                 ▼
-                ▼                    system prompt = persona
-   memory model (cheap, JSON)                 + room summary & recent topics
-   ├─ room summary + recent topics            + profiles of people in the chat
-   └─ per-person personality, facts,          + last K messages
-      interests (only what they said)         (+ web_search tool, + images)
+message ─▶ stored in the room's history ─▶ reply? (DM / @mention / name / random)
+              │                                  │
+              │ every N msgs                     ▼
+              ▼                       system prompt = persona (from the Persona page)
+   memory model (small, JSON)                   + room summary & recent topics
+   ├─ room summary + topics                     + profiles of people in the chat
+   └─ per-person personality,                   + matching knowledge-base passages
+      facts, interests                          + last K messages
+                                                (+ search_knowledge, web_search, images)
 ```
 
-- Data lives in a single SQLite file (`data/mochi.db`) on your server.
-- Only facts people share about themselves are kept. Sensitive traits are excluded by the memory prompt.
-- Anyone can say **"forget me"** to Mochi to erase their profile and messages. Admins can delete people or rooms from **Dashboard → Memory**.
-
-![Memory browser](docs/memory.png)
-
-## How search works
-
-Search is a tool the chat model can call. Mochi sends the query to Flatkey with the provider's native web-search tool:
-
-- **Anthropic protocol** (default): `POST /v1/messages` with the `web_search` server tool, using a Claude model.
-- **OpenAI protocol**: `POST /v1/responses` with the `web_search` tool, using a GPT model.
-
-If one protocol fails, the other is tried. The grounded answer and its sources go back to the chat model, and links are appended to the reply.
+- Memory and knowledge live in one SQLite file (`data/mochi.db`) on your server, scoped per bot.
+- Only facts people share about themselves are kept, and sensitive traits are excluded.
+- Anyone can say **"forget me"** to a bot to erase their profile and messages. Admins can delete people, rooms or whole bots from the dashboard.
 
 ## Deploy
 
@@ -157,9 +156,11 @@ docker build -t mochi .
 docker run -d --env-file .env -p 3000:3000 -v mochi-data:/app/data mochi
 ```
 
-**Railway / Render / Fly.io**: deploy the repo, set the variables from `.env.example`, and mount a volume at `/app/data` so memory survives restarts. Set `PUBLIC_URL` to your public URL so the widget snippet is correct.
+**Railway / Render / Fly.io**: deploy the repo, set `ADMIN_TOKEN` and `PUBLIC_URL`, and mount a volume at `/app/data` so bots, memory and knowledge survive restarts. Then bind your Flatkey key and channels in the dashboard.
 
 > Set a strong `ADMIN_TOKEN` before exposing the dashboard to the internet.
+
+Upgrading from v0.1? Your existing bot, settings and memory are migrated automatically on first start.
 
 ## Development
 
@@ -174,18 +175,21 @@ npm run typecheck
 
 ```
 src/
-  core/        brain.ts (reply logic), settings.ts, types.ts
-  flatkey/     client.ts (OpenAI-compatible + /messages + /responses), why.ts (Flatkey-only lock + pitch)
+  core/        brain.ts (reply logic), bots.ts (bot registry + settings), persona.ts (presets + prompt builder),
+               secrets.ts (Flatkey key + channel tokens), types.ts
+  channels/    manager.ts (per-bot connections, token verification, profile sync)
+  adapters/    discord.ts, telegram.ts, slack.ts
+  knowledge/   store.ts (chunking + FTS5 search), ingest.ts (files, web pages)
   memory/      store.ts (SQLite), updater.ts (background memory pass)
   abilities/   search.ts
-  adapters/    discord.ts, telegram.ts, slack.ts
+  flatkey/     client.ts, why.ts (Flatkey-only lock, pitch, UTM links)
   server/      app.ts (dashboard API + widget API)
 public/
   dashboard/   no-build dashboard (HTML/CSS/JS)
   widget/      embeddable website widget
 ```
 
-Adding a platform takes one adapter: convert incoming messages to `IncomingMessage`, call `brain.handle()`, and send back the reply.
+Adding a platform takes one adapter: convert incoming messages to `IncomingMessage` (with the `botId`), call `brain.handle()`, and send back the reply.
 
 ## License
 

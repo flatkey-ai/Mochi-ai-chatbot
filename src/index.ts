@@ -3,17 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Brain } from "./core/brain.ts";
-import { SettingsStore } from "./core/settings.ts";
+import { BotRegistry } from "./core/bots.ts";
 import { SecretsStore } from "./core/secrets.ts";
-import type { Platform, PlatformAdapter } from "./core/types.ts";
 import { FlatkeyClient } from "./flatkey/client.ts";
 import { resolveFlatkeyBaseUrl, whyFlatkeyBanner } from "./flatkey/why.ts";
 import { MemoryStore } from "./memory/store.ts";
 import { MemoryUpdater } from "./memory/updater.ts";
+import { KnowledgeStore } from "./knowledge/store.ts";
 import { SearchAbility } from "./abilities/search.ts";
-import { DiscordAdapter } from "./adapters/discord.ts";
-import { TelegramAdapter } from "./adapters/telegram.ts";
-import { SlackAdapter } from "./adapters/slack.ts";
+import { ChannelManager } from "./channels/manager.ts";
 import { createServer } from "./server/app.ts";
 
 const env = process.env;
@@ -33,63 +31,38 @@ if (!env.ADMIN_TOKEN || env.ADMIN_TOKEN === "change-me") {
 const dataDir = path.resolve(env.DATA_DIR || path.join(root, "data"));
 fs.mkdirSync(dataDir, { recursive: true });
 
-const settings = new SettingsStore(dataDir);
+const bots = new BotRegistry(dataDir);
 const secrets = new SecretsStore(dataDir);
 const store = new MemoryStore(dataDir);
+const knowledge = new KnowledgeStore(store.db);
 // A key bound in the dashboard takes precedence over FLATKEY_API_KEY in .env.
 const flatkey = new FlatkeyClient(secrets.flatkeyApiKey ?? env.FLATKEY_API_KEY, flatkeyBaseUrl);
-const getSettings = () => settings.get();
-const updater = new MemoryUpdater(flatkey, store, getSettings);
-const search = new SearchAbility(flatkey, getSettings);
-const brain = new Brain({ flatkey, store, updater, search, getSettings });
+const updater = new MemoryUpdater(flatkey, store, bots);
+const search = new SearchAbility(flatkey);
+const brain = new Brain({ flatkey, store, knowledge, updater, search, bots });
 
-// ── platform adapters: started/stopped live from the dashboard toggles ──
-const factories: Partial<Record<Platform, () => PlatformAdapter>> = {};
-if (env.DISCORD_BOT_TOKEN) factories.discord = () => new DiscordAdapter(env.DISCORD_BOT_TOKEN!, brain);
-if (env.TELEGRAM_BOT_TOKEN) factories.telegram = () => new TelegramAdapter(env.TELEGRAM_BOT_TOKEN!, brain);
-if (env.SLACK_BOT_TOKEN && env.SLACK_APP_TOKEN)
-  factories.slack = () => new SlackAdapter(env.SLACK_BOT_TOKEN!, env.SLACK_APP_TOKEN!, brain);
-
-const running: Partial<Record<Platform, PlatformAdapter>> = {};
-
-async function syncAdapters(): Promise<void> {
-  const s = settings.get();
-  for (const p of ["discord", "telegram", "slack"] as const) {
-    const want = Boolean(factories[p]) && s.platforms[p].enabled;
-    if (want && !running[p]) {
-      const a = factories[p]!();
-      running[p] = a;
-      a.start().catch((err) => {
-        console.error(`[${p}] failed to start:`, err?.message ?? err);
-        delete running[p];
-      });
-    } else if (!want && running[p]) {
-      const a = running[p]!;
-      delete running[p];
-      await a.stop().catch(() => {});
-      console.log(`[${p}] stopped from dashboard`);
-    }
-  }
-}
-settings.onChange(() => void syncAdapters());
-await syncAdapters();
+// Channel tokens are bound per bot in the dashboard. Tokens in .env still work for the first bot.
+const channels = new ChannelManager(bots, secrets, brain, {
+  env: {
+    discord: env.DISCORD_BOT_TOKEN,
+    telegram: env.TELEGRAM_BOT_TOKEN,
+    slackBot: env.SLACK_BOT_TOKEN,
+    slackApp: env.SLACK_APP_TOKEN,
+  },
+});
+await channels.startAll();
 
 const port = Number(env.PORT || 3000);
 const publicUrl = (env.PUBLIC_URL || `http://localhost:${port}`).replace(/\/+$/, "");
 const app = createServer({
   brain,
-  settings,
+  bots,
+  channels,
   secrets,
   envFlatkeyKey: env.FLATKEY_API_KEY,
   store,
+  knowledge,
   flatkey,
-  adapters: () => running,
-  configured: {
-    discord: Boolean(factories.discord),
-    telegram: Boolean(factories.telegram),
-    slack: Boolean(factories.slack),
-    web: true,
-  },
   adminToken: env.ADMIN_TOKEN || "change-me",
   publicUrl,
   publicDir: path.join(root, "public"),
@@ -99,14 +72,14 @@ const server = app.listen(port, () => {
     console.log(whyFlatkeyBanner());
     console.log(`  👉 Bind your key in the dashboard: ${publicUrl}/dashboard/#flatkey\n`);
   }
+  console.log(`[mochi] ${bots.list().length} bot(s): ${bots.list().map((b) => `${b.persona.avatar} ${b.persona.name}`).join(", ")}`);
   console.log(`[mochi] dashboard: ${publicUrl}/dashboard/`);
-  console.log(`[mochi] web widget: <script src="${publicUrl}/widget/widget.js" data-server="${publicUrl}" defer></script>`);
 });
 
 async function shutdown() {
   console.log("[mochi] shutting down…");
   server.close();
-  await Promise.allSettled(Object.values(running).map((a) => a.stop()));
+  await channels.stopAll();
   store.close();
   process.exit(0);
 }

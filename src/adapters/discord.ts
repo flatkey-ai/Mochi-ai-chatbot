@@ -13,6 +13,7 @@ export class DiscordAdapter implements PlatformAdapter {
   private detail = "not started";
 
   constructor(
+    readonly botId: string,
     private readonly token: string,
     private readonly brain: Brain,
   ) {}
@@ -31,7 +32,7 @@ export class DiscordAdapter implements PlatformAdapter {
       this.detail = `logged in as ${c.user.tag}`;
       console.log(`[discord] ${this.detail}`);
     });
-    client.on(Events.MessageCreate, (m) => void this.onMessage(m).catch((e) => console.error("[discord]", e)));
+    client.on(Events.MessageCreate, (m) => void this.onMessage(m).catch((e) => console.error(`[discord:${this.botId}]`, e)));
     await client.login(this.token);
     this.client = client;
   }
@@ -58,6 +59,7 @@ export class DiscordAdapter implements PlatformAdapter {
 
     try {
       const reply = await this.brain.handle({
+        botId: this.botId,
         platform: "discord",
         roomId: m.channelId,
         roomName: m.guild ? `${m.guild.name} ${roomName ?? ""}`.trim() : roomName,
