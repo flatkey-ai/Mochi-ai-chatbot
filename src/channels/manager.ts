@@ -231,12 +231,11 @@ export class ChannelManager {
         return { account: `@${r.result.username}`, link: `https://t.me/${r.result.username}` };
       }
       if (platform === "qq") {
-        // Honour the same endpoint overrides as the adapter (stub / regional gateway).
-        const qqTokenUrl = process.env.QQ_TOKEN_URL || undefined;
-        const qqApiBase = (process.env.QQ_API_BASE || "https://api.sgroup.qq.com").replace(/\/+$/, "");
+        // Credentials come from the dashboard binding (or .env for the first bot) and go to
+        // QQ's own endpoints only — no env indirection, so a stray variable can't redirect them.
         let token: string;
         try {
-          token = (await qqAccessToken(creds.qq!.appId, creds.qq!.appSecret, this.http, qqTokenUrl)).token;
+          token = (await qqAccessToken(creds.qq!.appId, creds.qq!.appSecret, this.http)).token;
         } catch (err) {
           // A network/TLS failure is not a wrong AppSecret: say which one it is.
           const msg = (err as Error).message ?? "";
@@ -249,7 +248,7 @@ export class ChannelManager {
             );
           throw new Error(`invalid: ${msg}`);
         }
-        const me = await this.getJson(`${qqApiBase}/users/@me`, {
+        const me = await this.getJson("https://api.sgroup.qq.com/users/@me", {
           headers: { authorization: `QQBot ${token}`, "x-union-appid": creds.qq!.appId },
         }).catch(() => null);
         return { account: me?.username ? `${me.username} (AppID ${creds.qq!.appId})` : `AppID ${creds.qq!.appId}`, link: "https://q.qq.com/" };
@@ -288,12 +287,7 @@ export class ChannelManager {
   private makeAdapter(botId: string, p: ChannelPlatform, c: ChannelCreds): PlatformAdapter {
     if (p === "discord") return new DiscordAdapter(botId, c.discord!.token, this.brain);
     if (p === "telegram") return new TelegramAdapter(botId, c.telegram!.token, this.brain);
-    if (p === "qq")
-      // QQ_TOKEN_URL / QQ_API_BASE point the adapter at a stub or a regional gateway.
-      return new QQAdapter(botId, c.qq!.appId, c.qq!.appSecret, this.brain, {
-        tokenUrl: process.env.QQ_TOKEN_URL,
-        apiBase: process.env.QQ_API_BASE,
-      });
+    if (p === "qq") return new QQAdapter(botId, c.qq!.appId, c.qq!.appSecret, this.brain);
     return new SlackAdapter(botId, c.slack!.botToken, c.slack!.appToken, this.brain);
   }
 }

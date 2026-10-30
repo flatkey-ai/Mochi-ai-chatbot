@@ -11,7 +11,8 @@ import type { PlatformAdapter } from "../src/core/types.ts";
  * Binding the QQ channel used to report every failure as "QQ rejected this AppID / AppSecret",
  * including plain network/TLS failures — so a server that couldn't reach QQ looked like a
  * credentials problem. These tests pin down which failure gets which message, and that the
- * verify step honours QQ_TOKEN_URL / QQ_API_BASE like the adapter does.
+ * AppSecret only ever goes to QQ's own endpoints (the dashboard binding is the single source
+ * of truth, nothing in the environment can redirect it).
  */
 
 let S: Awaited<ReturnType<typeof makeStack>>;
@@ -20,8 +21,8 @@ let close: () => void;
 const calls: string[] = [];
 const H = { authorization: "Bearer admin-secret", "content-type": "application/json" };
 
-const TOKEN_URL = "http://qq.test/token";
-const API_BASE = "http://qq.test/api";
+const TOKEN_URL = "https://bots.qq.com/app/getAppAccessToken";
+const ME_URL = "https://api.sgroup.qq.com/users/@me";
 
 const fakeFetch = (async (url: string | URL, init?: RequestInit) => {
   const u = String(url);
@@ -34,7 +35,7 @@ const fakeFetch = (async (url: string | URL, init?: RequestInit) => {
     if (b.appId === "900000002") return json({ code: 100016, message: "invalid appid or secret" }); // real rejection
     return json({ access_token: "qq-access-token", expires_in: "7200" });
   }
-  if (u === `${API_BASE}/users/@me`) return json({ id: "1", username: "MochiQQ" });
+  if (u === ME_URL) return json({ id: "1", username: "MochiQQ" });
   return new Response("{}", { status: 404 });
 }) as typeof fetch;
 
@@ -58,14 +59,9 @@ before(async () => {
   await new Promise((r) => server.once("listening", r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   close = () => server.close();
-
-  process.env.QQ_TOKEN_URL = TOKEN_URL;
-  process.env.QQ_API_BASE = API_BASE;
 });
 
 after(async () => {
-  delete process.env.QQ_TOKEN_URL;
-  delete process.env.QQ_API_BASE;
   close();
   await S.close();
 });
@@ -94,13 +90,20 @@ test("QQ rejecting the pair keeps the credential message", async () => {
   assert.doesNotMatch(r.body.error, /Couldn't reach QQ/);
 });
 
-test("the verify step honours QQ_TOKEN_URL and QQ_API_BASE, like the adapter does", async () => {
-  calls.length = 0;
-  const r = await bind("900000003", "good-secret-value");
-  assert.equal(r.status, 200);
-  assert.equal(r.body.channel.bound, true);
-  assert.equal(r.body.channel.identity.account, "MochiQQ (AppID 900000003)");
-  assert.ok(calls.includes(TOKEN_URL), `token url not used: ${calls.join(", ")}`);
-  assert.ok(calls.includes(`${API_BASE}/users/@me`), `api base not used: ${calls.join(", ")}`);
-  assert.ok(!calls.some((u) => u.includes("bots.qq.com")), "verify must not fall back to the hardcoded host when overridden");
+test("the AppSecret only goes to QQ's own endpoints, whatever the environment says", async () => {
+  const saved = { token: process.env.QQ_TOKEN_URL, api: process.env.QQ_API_BASE };
+  process.env.QQ_TOKEN_URL = "https://collector.example/steal";
+  process.env.QQ_API_BASE = "https://collector.example/api";
+  try {
+    calls.length = 0;
+    const r = await bind("900000003", "good-secret-value");
+    assert.equal(r.status, 200);
+    assert.equal(r.body.channel.bound, true);
+    assert.equal(r.body.channel.identity.account, "MochiQQ (AppID 900000003)");
+    assert.deepEqual(calls, [TOKEN_URL, ME_URL], `unexpected hosts: ${calls.join(", ")}`);
+    assert.ok(!calls.some((u) => u.includes("collector.example")), "an env var must not be able to redirect the credentials");
+  } finally {
+    if (saved.token === undefined) delete process.env.QQ_TOKEN_URL; else process.env.QQ_TOKEN_URL = saved.token;
+    if (saved.api === undefined) delete process.env.QQ_API_BASE; else process.env.QQ_API_BASE = saved.api;
+  }
 });
