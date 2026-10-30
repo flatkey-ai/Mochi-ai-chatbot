@@ -4,6 +4,7 @@
  */
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import { pathToFileURL } from "node:url";
 
 export interface MockCall { path: string; body: any }
 
@@ -95,7 +96,15 @@ export function startMockFlatkey(port = 0): Promise<{ url: string; calls: MockCa
   });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Windows-safe entry guard: argv[1] is a plain path (E:\...), not a file:// URL.
+const isEntry = (() => {
+  try {
+    return process.argv[1] ? pathToFileURL(process.argv[1]).href === import.meta.url : false;
+  } catch {
+    return false;
+  }
+})();
+if (isEntry) {
   const m = await startMockFlatkey(4010);
   console.log(`mock flatkey on ${m.url}`);
 }

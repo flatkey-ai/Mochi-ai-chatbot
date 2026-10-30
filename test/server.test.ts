@@ -92,7 +92,9 @@ test("binds a Flatkey key: rejects bad ones, saves good ones 0600 and masked", a
   assert.equal(ok.body.bound, true);
   assert.ok(!JSON.stringify(ok.body).includes(key));
   const file = path.join(S.dir, "secrets.json");
-  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  // POSIX modes don't exist on Windows (NTFS reports 0666 whatever we chmod), so the
+  // 0600 guarantee is only assertable where the platform implements it.
+  if (process.platform !== "win32") assert.equal(fs.statSync(file).mode & 0o777, 0o600);
   assert.match((await widget("mochi", "hello there")).reply, /you said/);
 });
 

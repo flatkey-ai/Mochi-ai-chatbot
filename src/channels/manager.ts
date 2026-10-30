@@ -231,9 +231,23 @@ export class ChannelManager {
         return { account: `@${r.result.username}`, link: `https://t.me/${r.result.username}` };
       }
       if (platform === "qq") {
-        const { token } = await qqAccessToken(creds.qq!.appId, creds.qq!.appSecret, this.http).catch(() => {
-          throw new Error("invalid");
-        });
+        // Credentials come from the dashboard binding (or .env for the first bot) and go to
+        // QQ's own endpoints only — no env indirection, so a stray variable can't redirect them.
+        let token: string;
+        try {
+          token = (await qqAccessToken(creds.qq!.appId, creds.qq!.appSecret, this.http)).token;
+        } catch (err) {
+          // A network/TLS failure is not a wrong AppSecret: say which one it is.
+          const msg = (err as Error).message ?? "";
+          const networkish =
+            err instanceof TypeError ||
+            /fetch failed|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|socket hang up|certificate|TLS|aborted|timeout/i.test(msg);
+          if (networkish)
+            throw new Error(
+              `Couldn't reach QQ from this server (${msg.slice(0, 120)}). That's a network, DNS, TLS or proxy problem here — not a wrong AppID.`,
+            );
+          throw new Error(`invalid: ${msg}`);
+        }
         const me = await this.getJson("https://api.sgroup.qq.com/users/@me", {
           headers: { authorization: `QQBot ${token}`, "x-union-appid": creds.qq!.appId },
         }).catch(() => null);
@@ -257,7 +271,7 @@ export class ChannelManager {
       return { account: `@${auth.user} in ${auth.team}`, link: auth.url };
     } catch (err) {
       const m = (err as Error).message;
-      if (/Message Content|app-level|app token|bot token/.test(m)) throw new Error(m);
+      if (/Message Content|app-level|app token|bot token|Couldn't reach QQ/.test(m)) throw new Error(m);
       if (platform === "qq") throw new Error("QQ rejected this AppID / AppSecret. Copy both again from q.qq.com → your bot → 开发管理 (Development) and retry.");
       throw new Error(`${cap(platform)} rejected this token. Copy it again from the ${platform === "telegram" ? "@BotFather chat" : "developer portal"} and retry.`);
     }
