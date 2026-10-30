@@ -31,6 +31,25 @@ export interface ServerDeps {
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
+/**
+ * "fetch failed" alone sends people looking at the wrong platform. When the failure is
+ * network/DNS/TLS rather than an API answer, say so and name the host that failed.
+ */
+function networkHint(err: unknown): string {
+  const e = err as Error & { cause?: { code?: string } };
+  const msg = e?.message ?? String(err);
+  if (/Couldn't reach QQ|Couldn't verify|Flatkey rejected/.test(msg)) return msg;
+  const code = e?.cause?.code;
+  const networkish =
+    err instanceof TypeError ||
+    /fetch failed|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|socket hang up|certificate|TLS|aborted|timeout/i.test(msg);
+  if (!networkish) return msg;
+  return (
+    `${msg}${code ? ` (${code})` : ""} — this server can't reach flatkey.ai. ` +
+    `Check outbound network / TLS / proxy: Mochi needs router.flatkey.ai and console.flatkey.ai.`
+  );
+}
+
 export function createServer(d: ServerDeps) {
   const app = express();
   app.disable("x-powered-by");
@@ -122,7 +141,7 @@ export function createServer(d: ServerDeps) {
       try {
         await fn(req, res);
       } catch (err) {
-        if (!res.headersSent) res.status(400).json({ error: (err as Error).message });
+        if (!res.headersSent) res.status(400).json({ error: networkHint(err) });
       }
     };
   const botOr404 = (req: Request, res: Response): BotSettings | undefined => {
@@ -156,7 +175,10 @@ export function createServer(d: ServerDeps) {
     } catch (err) {
       const status = (err as { status?: number }).status;
       res.status(400).json({
-        error: status === 401 || status === 403 ? "Flatkey rejected this key. Check that you copied the whole key and that it's active." : `Couldn't verify the key: ${(err as Error).message}`,
+        error:
+          status === 401 || status === 403
+            ? "Flatkey rejected this key. Check that you copied the whole key and that it's active."
+            : `Couldn't verify the key: ${networkHint(err)}`,
       });
     }
   });
