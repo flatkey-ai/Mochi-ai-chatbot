@@ -115,7 +115,7 @@ The widget takes its name, avatar, color, description and greeting from the bot'
 
 Every call goes through your one Flatkey balance. For each bot, under **Models & abilities**:
 
-- **Pick a model per job.** Use a strong model for chat and a small one for background memory.
+- **Pick a model per job.** New bots use a fast DeepSeek model for chat and memory, a GPT model for reading images, and a Claude model for web search. Swap any of them for any model in the Flatkey catalog.
 - **Toggle abilities.** Memory, search and image reading each add calls; turn off what you don't need. Changes apply instantly.
 - **Daily token budget.** Once it's reached, the bot politely goes quiet until the next UTC day, with no further calls.
 - **Limits.** Reply length, history length, memory update frequency, searches per reply, images per message.

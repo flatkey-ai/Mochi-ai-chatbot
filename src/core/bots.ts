@@ -89,7 +89,9 @@ export const BASE_BOT: Omit<BotSettings, "id" | "createdAt"> = {
     maxChunks: 4,
     fallbackMessage: "I couldn't find that in my notes. Could you rephrase, or ask a human on the team?",
   },
-  models: { chat: "gpt-5.4-mini", vision: "gpt-5.4-mini", memory: "gpt-5.4-nano", search: "claude-sonnet-4-6" },
+  // Chat + memory default to DeepSeek V4.1 Flash. Vision needs a model that accepts images,
+  // and search needs a model with the native web_search tool, so those keep their own defaults.
+  models: { chat: "deepseek-v4-1-flash", vision: "gpt-5.4-mini", memory: "deepseek-v4-1-flash", search: "claude-sonnet-4-6" },
   features: { memory: true, search: true, vision: true },
   search: { mode: "messages", maxSearchesPerReply: 2 },
   triggers: { replyInDirectMessages: true, replyWhenMentioned: true, replyWhenNameSaid: true, randomReplyChance: 0 },

@@ -22,7 +22,7 @@ export function startMockFlatkey(port = 0): Promise<{ url: string; calls: MockCa
     if (!auth.startsWith("Bearer ") || auth.startsWith("Bearer bad-")) return send({ error: "invalid api key" }, 401);
 
     if (req.url === "/v1/models") {
-      return send({ data: ["gpt-5.4-mini", "gpt-5.4-nano", "claude-sonnet-4-6", "deepseek-chat", "kimi-k2"].map((id) => ({ id, object: "model" })) });
+      return send({ data: ["deepseek-v4-1-flash", "gpt-5.4-mini", "gpt-5.4-nano", "claude-sonnet-4-6", "kimi-k2"].map((id) => ({ id, object: "model" })) });
     }
 
     if (req.url === "/v1/messages") {

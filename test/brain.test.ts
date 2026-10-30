@@ -16,6 +16,8 @@ test("a fresh install has one companion bot, Mochi", () => {
   assert.equal(bots[0].id, "mochi");
   assert.equal(bots[0].persona.name, "Mochi");
   assert.equal(bots[0].mode, "companion");
+  assert.equal(bots[0].models.chat, "deepseek-v4-1-flash");
+  assert.equal(bots[0].models.memory, "deepseek-v4-1-flash");
 });
 
 test("stays quiet in groups unless addressed, but still remembers the message", async () => {
@@ -27,6 +29,7 @@ test("stays quiet in groups unless addressed, but still remembers the message", 
 
 test("replies when @mentioned or when its name is said (whole word only)", async () => {
   assert.match((await S.brain.handle(msg({ text: "what's up", mentionsBot: true })))!.text, /you said/);
+  assert.equal(lastChat().body.model, "deepseek-v4-1-flash", "default chat model");
   assert.ok(await S.brain.handle(msg({ text: "hey mochi, you there?" })));
   assert.equal(await S.brain.handle(msg({ text: "mochimochi is a cake" })), null);
 });
