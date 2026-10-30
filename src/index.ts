@@ -13,9 +13,19 @@ import { KnowledgeStore } from "./knowledge/store.ts";
 import { SearchAbility } from "./abilities/search.ts";
 import { ChannelManager } from "./channels/manager.ts";
 import { createServer } from "./server/app.ts";
+import { takeEnvSecrets } from "./core/env-secrets.ts";
 
-const env = process.env;
+const env = { ...process.env };
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// Provider keys that came in through the environment are remembered for redaction and then
+// removed from process.env, so they stop being inherited by child processes and dumps.
+const envSecretsFound = takeEnvSecrets();
+if (envSecretsFound.length)
+  console.warn(
+    `[mochi] read ${envSecretsFound.join(", ")} from the environment and removed them from it. ` +
+      `Prefer binding keys in the dashboard (data/secrets.json) so they aren't inherited by child processes.`,
+  );
 
 let flatkeyBaseUrl: string;
 try {
@@ -39,7 +49,7 @@ const knowledge = new KnowledgeStore(store.db);
 const flatkey = new FlatkeyClient(secrets.flatkeyApiKey ?? env.FLATKEY_API_KEY, flatkeyBaseUrl);
 const updater = new MemoryUpdater(flatkey, store, bots);
 const search = new SearchAbility(flatkey);
-const brain = new Brain({ flatkey, store, knowledge, updater, search, bots });
+const brain = new Brain({ flatkey, store, knowledge, updater, search, bots, secrets });
 
 // Channel tokens are bound per bot in the dashboard. Tokens in .env still work for the first bot.
 const channels = new ChannelManager(bots, secrets, brain, {

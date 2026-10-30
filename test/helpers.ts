@@ -23,7 +23,7 @@ export async function makeStack(opts: { key?: string } = { key: "test-key" }) {
   const flatkey = new FlatkeyClient(opts.key, mock.url);
   const updater = new MemoryUpdater(flatkey, store, bots);
   const search = new SearchAbility(flatkey);
-  const brain = new Brain({ flatkey, store, knowledge, updater, search, bots, random: () => 1 });
+  const brain = new Brain({ flatkey, store, knowledge, updater, search, bots, secrets, random: () => 1 });
   return {
     mock, dir, bots, secrets, store, knowledge, flatkey, updater, brain,
     async close() {

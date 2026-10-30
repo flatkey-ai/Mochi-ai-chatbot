@@ -1,8 +1,9 @@
-import { isIP } from "node:net";
+import { assertPublicUrl } from "../core/net-guard.ts";
 
 export const SUPPORTED_FILE_TYPES = [".txt", ".md", ".markdown", ".csv", ".json", ".html", ".htm", ".pdf", ".docx"];
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_URL_BYTES = 3 * 1024 * 1024;
+const MAX_REDIRECTS = 3;
 
 /** Extract plain text from an uploaded file. */
 export async function extractFileText(filename: string, data: Buffer): Promise<string> {
@@ -36,31 +37,40 @@ export async function extractFileText(filename: string, data: Buffer): Promise<s
 
 /** Fetch a public web page and extract its readable text. */
 export async function fetchUrlText(rawUrl: string): Promise<{ title: string; text: string; url: string }> {
-  let url: URL;
-  try {
-    url = new URL(rawUrl);
-  } catch {
-    throw new Error("That isn't a valid URL.");
-  }
-  if (!/^https?:$/.test(url.protocol)) throw new Error("Only http(s) URLs are supported.");
-  if (isPrivateHost(url.hostname)) throw new Error("Private or local addresses can't be imported.");
+  let url = assertPublicUrl(rawUrl);
 
-  const res = await fetch(url, {
-    redirect: "follow",
-    signal: AbortSignal.timeout(20_000),
-    headers: { "user-agent": "mochi-ai-chatbot/0.2 knowledge-import", accept: "text/html,text/plain,application/pdf;q=0.9,*/*;q=0.5" },
-  });
+  // Redirects are followed by hand: "follow" would let a public URL bounce us to
+  // 127.0.0.1 or a metadata endpoint, which is the classic way past this check.
+  let res: Response | undefined;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    res = await fetch(url, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(20_000),
+      headers: { "user-agent": "mochi-ai-chatbot/0.2 knowledge-import", accept: "text/html,text/plain,application/pdf;q=0.9,*/*;q=0.5" },
+    });
+    const location = res.headers.get("location");
+    if (res.status >= 300 && res.status < 400 && location) {
+      if (hop === MAX_REDIRECTS) throw new Error("Too many redirects.");
+      const next = assertPublicUrl(new URL(location, url), "redirect target");
+      await res.body?.cancel().catch(() => {});
+      url = next;
+      continue;
+    }
+    break;
+  }
+  if (!res) throw new Error("The page could not be fetched.");
   if (!res.ok) throw new Error(`The page returned HTTP ${res.status}.`);
+
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length > MAX_URL_BYTES) throw new Error("That page is too large to import.");
   const type = res.headers.get("content-type") ?? "";
-  if (type.includes("pdf")) return { title: url.pathname.split("/").pop() || url.hostname, text: await extractFileText("x.pdf", buf), url: res.url };
+  if (type.includes("pdf")) return { title: url.pathname.split("/").pop() || url.hostname, text: await extractFileText("x.pdf", buf), url: url.toString() };
   const body = buf.toString("utf8");
   if (type.includes("html") || /^\s*</.test(body)) {
     const { title, text } = htmlToText(body);
-    return { title: title || url.hostname + url.pathname, text, url: res.url };
+    return { title: title || url.hostname + url.pathname, text, url: url.toString() };
   }
-  return { title: url.hostname + url.pathname, text: body, url: res.url };
+  return { title: url.hostname + url.pathname, text: body, url: url.toString() };
 }
 
 export function htmlToText(html: string): { title: string; text: string } {
@@ -100,15 +110,4 @@ function jsonToText(v: unknown, prefix = ""): string {
       .map(([k, x]) => (x && typeof x === "object" ? `${prefix}${k}:\n${jsonToText(x, prefix + "  ")}` : `${prefix}${k}: ${x}`))
       .join("\n");
   return String(v ?? "");
-}
-
-function isPrivateHost(host: string): boolean {
-  const h = host.toLowerCase().replace(/^\[|\]$/g, "");
-  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
-  if (isIP(h) === 4) {
-    const [a, b] = h.split(".").map(Number);
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
-  }
-  if (isIP(h) === 6) return h === "::1" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80") || h === "::";
-  return false;
 }

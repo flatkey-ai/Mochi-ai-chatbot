@@ -15,7 +15,7 @@ export function detectLang(text: string): Lang {
   return "en";
 }
 
-const REPLIES: Record<"forgot" | "asleep" | "budget" | "glitch", Record<Lang, string>> = {
+const REPLIES: Record<"forgot" | "asleep" | "budget" | "glitch" | "flood", Record<Lang, string>> = {
   forgot: {
     en: "done — i've forgotten everything i knew about you, {name}. fresh start ✨",
     pt: "pronto — esqueci tudo o que sabia sobre você, {name}. recomeço ✨",
@@ -39,6 +39,12 @@ const REPLIES: Record<"forgot" | "asleep" | "budget" | "glitch", Record<Lang, st
     pt: "ops, meu cérebro travou por um segundo (╥﹏╥) tenta de novo?",
     ja: "あれ、ちょっと頭がフリーズしちゃった (╥﹏╥) もう一回送ってくれる？",
     zh: "哎呀，脑子卡了一下 (╥﹏╥) 再发一次试试？",
+  },
+  flood: {
+    en: "whoa, slow down a sec — give me a minute and ask again (˘ω˘)",
+    pt: "calma aí, devagar — me dá um minutinho e pergunta de novo (˘ω˘)",
+    ja: "ちょっと待って、少しゆっくりで…1分くらいあけてからまた話しかけてね (˘ω˘)",
+    zh: "慢一点啦，等下再问我 (˘ω˘)",
   },
 };
 

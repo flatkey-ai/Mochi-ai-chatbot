@@ -403,6 +403,18 @@
     ["Telegram rejected this token. Copy it again from the @BotFather chat and retry.", "O Telegram recusou este token. Copie de novo na conversa com o @BotFather e tente outra vez.", "Telegram がこのトークンを拒否しました。@BotFather とのチャットからコピーし直して再試行してください。", "Telegram 拒绝了这个 Token。请在 @BotFather 的对话里重新复制后再试。"],
     ["Slack rejected this token. Copy it again from the developer portal and retry.", "O Slack recusou este token. Copie de novo no portal de desenvolvedores e tente outra vez.", "Slack がこのトークンを拒否しました。開発者ポータルからコピーし直して再試行してください。", "Slack 拒绝了这个 Token。请到开发者后台重新复制后再试。"],
     ["Turn on \"Message Content Intent\" under Bot → Privileged Gateway Intents in the Discord developer portal, then try again.", "Ative \"Message Content Intent\" em Bot → Privileged Gateway Intents no portal de desenvolvedores do Discord e tente de novo.", "Discord 開発者ポータルの Bot → Privileged Gateway Intents で「Message Content Intent」をオンにしてから再試行してください。", "请在 Discord 开发者后台的 Bot → Privileged Gateway Intents 中打开“Message Content Intent”，然后重试。"],
+    ["Safety", "Segurança", "セーフティ", "安全"],
+    ["Chat messages, documents and search results can contain text aimed at the model. These guards are deterministic: they run in the server, not in the model.", "Mensagens de chat, documentos e resultados de busca podem conter texto direcionado ao modelo. Estas proteções são determinísticas: rodam no servidor, não no modelo.", "チャットのメッセージ、ドキュメント、検索結果には、モデルを狙った文章が混ざることがあります。この防御は決定的な処理で、モデルではなくサーバー側で動きます。", "聊天消息、文档和搜索结果里可能夹带针对模型写的文字。这些防护是确定性的：跑在服务器上，而不是靠模型自觉。"],
+    ["Prompt safeguard", "Proteção de prompt", "プロンプト保護", "提示词防护"],
+    ["Strips role and template syntax from untrusted text, marks quoted passages as data, refuses search queries that carry URLs or tokens, and drops any reply that leaks its instructions.", "Remove sintaxe de papéis e de template do texto não confiável, marca trechos citados como dados, recusa buscas que carreguem URLs ou tokens e descarta respostas que vazem instruções.", "信頼できないテキストからロールやテンプレートの記法を取り除き、引用部分をデータとして明示し、URL やトークンを含む検索クエリを拒否し、指示の漏えいした返信を破棄します。", "清除不可信文本里的角色/模板标记，把引用段落标为数据，拒绝带 URL 或 token 的搜索请求，并丢弃泄露指令的回复。"],
+    ["Scrub secrets from replies", "Remover segredos das respostas", "返信からシークレットを除去", "从回复中清除密钥"],
+    ["Removes anything that looks like an API key or token from what the bot says, and blanks out any credential this server knows.", "Remove do que o bot diz qualquer coisa parecida com chave de API ou token, e apaga credenciais que este servidor conhece.", "ボットの発言から API キーやトークンらしき文字列を取り除き、このサーバーが知っている認証情報は伏せます。", "把机器人说的话里像 API key / token 的内容去掉，服务器已知的凭据一律抹掉。"],
+    ["Messages per minute per person", "Mensagens por minuto por pessoa", "1人あたり1分のメッセージ数", "每人每分钟消息数"],
+    ["0 = no limit. Stops one person looping the bot and burning the budget.", "0 = sem limite. Evita que uma pessoa faça o bot entrar em loop e gaste o orçamento.", "0 = 無制限。1人がボットを連打して予算を使い切るのを防ぎます。", "0 = 不限制。防止一个人反复刷机器人把预算烧光。"],
+    ["Safeguard on", "Proteção ativada", "プロンプト保護 ON", "提示词防护已开"],
+    ["Safeguard off", "Proteção desativada", "プロンプト保護 OFF", "提示词防护已关"],
+    ["Secret scrubbing on", "Remoção de segredos ativada", "シークレット除去 ON", "密钥清除已开"],
+    ["Secret scrubbing off", "Remoção de segredos desativada", "シークレット除去 OFF", "密钥清除已关"],
   ];
   const I18N = { pt: {}, ja: {}, zh: {} };
   for (const [en, pt, ja, zh] of ROWS) {

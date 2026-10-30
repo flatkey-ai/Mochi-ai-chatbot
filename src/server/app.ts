@@ -129,10 +129,28 @@ export function createServer(d: ServerDeps) {
 
   // ── admin API (dashboard) ───────────────────────────────────────
   const admin = express.Router();
+  // Slow down token guessing against the dashboard from a LAN/WAN neighbour.
+  const authFails = new Map<string, { n: number; reset: number }>();
+  const AUTH_WINDOW_MS = 10 * 60_000;
+  const AUTH_MAX_FAILS = 20;
   admin.use((req, res, next) => {
+    const ip = req.ip ?? "unknown";
+    const now = Date.now();
+    const rec = authFails.get(ip);
+    if (rec && rec.reset > now && rec.n >= AUTH_MAX_FAILS) {
+      res.setHeader("retry-after", Math.ceil((rec.reset - now) / 1000));
+      return res.status(429).json({ error: "Too many wrong tokens. Try again later." });
+    }
     const got = Buffer.from(String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, ""));
     const want = Buffer.from(d.adminToken);
-    if (got.length !== want.length || !crypto.timingSafeEqual(got, want)) return res.status(401).json({ error: "unauthorized" });
+    const ok = got.length === want.length && crypto.timingSafeEqual(got, want);
+    if (!ok) {
+      if (!rec || rec.reset <= now) authFails.set(ip, { n: 1, reset: now + AUTH_WINDOW_MS });
+      else rec.n++;
+      if (authFails.size > 2000) for (const [k, v] of authFails) if (v.reset <= now) authFails.delete(k);
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    if (rec) authFails.delete(ip);
     next();
   });
   const wrap =
