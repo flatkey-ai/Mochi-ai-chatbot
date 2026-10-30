@@ -48,6 +48,8 @@ const channels = new ChannelManager(bots, secrets, brain, {
     telegram: env.TELEGRAM_BOT_TOKEN,
     slackBot: env.SLACK_BOT_TOKEN,
     slackApp: env.SLACK_APP_TOKEN,
+    qqAppId: env.QQ_APP_ID,
+    qqAppSecret: env.QQ_APP_SECRET,
   },
 });
 await channels.startAll();

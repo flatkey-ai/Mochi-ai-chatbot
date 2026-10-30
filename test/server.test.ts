@@ -22,6 +22,13 @@ const fakeFetch = (async (url: string | URL, init?: RequestInit) => {
   platformCalls.push(`${init?.method ?? "GET"} ${u.replace(TG_OK, "<tg>")}`);
   const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
   if (u.includes(`bot${TG_OK}/getMe`)) return ok({ ok: true, result: { username: "helpdesk_bot" } });
+  if (u === "https://bots.qq.com/app/getAppAccessToken") {
+    const b = JSON.parse(String(init?.body ?? "{}"));
+    return b.appId === "102012345" && b.clientSecret === "good-qq-secret"
+      ? ok({ access_token: "qq-token", expires_in: "7200" })
+      : new Response(JSON.stringify({ code: 100016, message: "invalid appid or secret" }), { status: 200 });
+  }
+  if (u === "https://api.sgroup.qq.com/users/@me") return ok({ id: "999", username: "MochiQQ" });
   if (u.includes("api.telegram.org")) return ok(u.includes("getMe") ? { ok: false } : { ok: true });
   const auth = String((init?.headers as any)?.authorization ?? "");
   if (u.endsWith("/users/@me")) return auth.startsWith("Bot good-discord-token") ? ok({ id: "111", username: "Helpdesk", discriminator: "0" }) : new Response("{}", { status: 401 });
@@ -167,6 +174,20 @@ test("channels: verify tokens before saving, start the bot, sync description", a
   const d = await j(`/api/admin/bots/mochi/channels/discord`, { method: "PUT", body: { token: "good-discord-token-aaaaaaaaaaaaaaaa" } });
   assert.equal(d.status, 200);
   assert.match(d.body.channel.identity.link, /client_id=222&scope=bot&permissions=68608/);
+
+  // QQ: AppID + AppSecret verified through the official token endpoint.
+  const qqShape = await j(`/api/admin/bots/mochi/channels/qq`, { method: "PUT", body: { appId: "abc", appSecret: "x" } });
+  assert.match(qqShape.body.error, /AppID is a number/);
+  const qqBad = await j(`/api/admin/bots/mochi/channels/qq`, { method: "PUT", body: { appId: "102012345", appSecret: "wrong-qq-secret" } });
+  assert.match(qqBad.body.error, /QQ rejected this AppID/);
+  const qq = await j(`/api/admin/bots/mochi/channels/qq`, { method: "PUT", body: { appId: "102012345", appSecret: "good-qq-secret" } });
+  assert.equal(qq.status, 200);
+  assert.match(qq.body.channel.identity.account, /^MochiQQ/);
+  assert.ok(!JSON.stringify(qq.body).includes("good-qq-secret"), "secret never returned");
+  await new Promise((r) => setTimeout(r, 50));
+  assert.ok(started.includes("mochi:qq"));
+  const ov = await j("/api/admin/overview");
+  assert.ok(ov.body.bots.find((b: any) => b.id === "mochi").channels.some((c: any) => c.platform === "qq" && c.running));
 
   // Changing the description re-syncs it.
   platformCalls.length = 0;

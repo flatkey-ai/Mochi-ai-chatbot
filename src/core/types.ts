@@ -1,4 +1,4 @@
-export type Platform = "discord" | "telegram" | "slack" | "web";
+export type Platform = "discord" | "telegram" | "slack" | "qq" | "web";
 
 /** An image attached to a message. `url` is either a public https URL or a data: URL. */
 export interface ImageInput {

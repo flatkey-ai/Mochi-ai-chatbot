@@ -5,6 +5,7 @@ export interface ChannelCreds {
   discord?: { token: string };
   telegram?: { token: string };
   slack?: { botToken: string; appToken: string };
+  qq?: { appId: string; appSecret: string };
 }
 export type ChannelPlatform = keyof ChannelCreds;
 
@@ -68,6 +69,7 @@ export class SecretsStore {
       if (c.discord?.token === token) return { botId, platform: "discord" };
       if (c.telegram?.token === token) return { botId, platform: "telegram" };
       if (c.slack?.botToken === token || c.slack?.appToken === token) return { botId, platform: "slack" };
+      if (c.qq?.appId === token) return { botId, platform: "qq" };
     }
     return undefined;
   }

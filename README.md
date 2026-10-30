@@ -2,7 +2,7 @@
 
 # 🍡 Mochi
 
-**Build your own AI chatbots for Discord, Telegram, Slack and your website.**
+**Build your own AI chatbots for Discord, Telegram, Slack, QQ and your website.**
 Companions that remember people, Q&A bots that answer from your docs, and a dashboard that controls every cent they spend.
 
 Powered by [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_header): **Official models. Better prices.**
@@ -34,7 +34,7 @@ A good chatbot isn't one model. Each Mochi bot uses **several kinds of model cal
 | 🤖 | **Multiple bots** | Run a group-chat companion, a support bot and a study buddy on one server. Each has its own persona, knowledge, channels, memory, models and daily budget. Start from a preset or from scratch. |
 | 🎭 | **Persona & description** | Name, avatar, color, public description, greeting, personality, tone, emoji level, reply length, language, backstory and rules. You can also write the whole prompt yourself. The description is synced to your Telegram and Discord bot profiles. |
 | 📚 | **Knowledge base** | Make a Q&A bot by uploading docs (PDF, Word, Markdown, text, CSV, JSON, HTML), pasting text or importing a web page. Turn on *only answer from the knowledge base* and the bot never guesses. |
-| 🔌 | **Channels** | Connect Discord, Telegram and Slack from the dashboard. Tokens are verified with each platform before saving, and each bot gets a one-line website widget. |
+| 🔌 | **Channels** | Connect Discord, Telegram, Slack and QQ from the dashboard. Tokens are verified with each platform before saving, and each bot gets a one-line website widget. |
 | 🧠 | **Memory** | Remembers each person in a chat (personality, things they've shared, interests) and what each room talks about. A small background model updates it every N messages. |
 | 🔎 | **Web search** | Looks up facts it isn't sure about through Flatkey and answers with sources. No separate search API key needed. |
 | 🖼️ | **Image reading** | Reads screenshots, memes and photos with a vision model you choose. |
@@ -58,7 +58,7 @@ Open **http://localhost:3000/dashboard** and enter your `ADMIN_TOKEN`.
 2. **Meet Mochi**, your first bot, or click **New bot** and pick a preset: *Group-chat companion*, *Q&A / support bot*, *Study buddy* or *Blank*.
 3. **Make it yours** in **Persona**: name, avatar, description, personality, tone and rules. A live preview shows exactly what the bot is told.
 4. **Teach it** in **Knowledge base** (optional, and the core of a Q&A bot).
-5. **Connect it** in **Channels**: paste a Discord, Telegram or Slack token, or copy the website snippet.
+5. **Connect it** in **Channels**: paste a Discord, Telegram, Slack or QQ token, or copy the website snippet.
 6. **Try it** in **Playground**.
 
 New to Flatkey? [Sign up here](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_quickstart).
@@ -77,7 +77,7 @@ Everything that makes a bot *that* bot lives here:
 - **Advanced:** write the whole system prompt yourself.
 - **When to reply:** DMs, @mentions, its name or nicknames, or a random chime-in chance in groups.
 
-The description is pushed to your bot's **Telegram** profile (description and short description) and **Discord** application description whenever you change it.
+The description is pushed to your bot's **Telegram** profile (description and short description) and **Discord** application description whenever you change it. (Slack and QQ don't allow bots to change their profile through the API.)
 
 ## Knowledge base (Q&A bots)
 
@@ -99,6 +99,7 @@ Each bot connects to its own accounts. The dashboard walks you through each plat
 | 🎮 Discord | Bot token | Turn on **Message Content Intent** (Mochi checks for it). You'll get an invite link. |
 | ✈️ Telegram | Token from [@BotFather](https://t.me/BotFather) | For group memory, turn **Group Privacy** off. |
 | 💼 Slack | Bot token (`xoxb-`) + app-level token (`xapp-`) | Socket Mode, so no public URL needed. The dashboard lists the scopes. |
+| 🐧 QQ | AppID + AppSecret from the [QQ Bot Open Platform](https://q.qq.com/) | Official API, no QQ client needed. Add your server's IP to the platform's IP allowlist. Replies to @-mentions in groups, private chats and QQ guild channels. |
 | 🌐 Website | Nothing | Copy the one-line snippet. Restrict it to your domains under **Allowed sites**. |
 
 ```html
@@ -109,7 +110,7 @@ The widget takes its name, avatar, color, description and greeting from the bot'
 
 <img src="docs/widget.png" width="560" alt="Website widget" />
 
-> Prefer config files? `DISCORD_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN`, `SLACK_BOT_TOKEN` + `SLACK_APP_TOKEN` and `FLATKEY_API_KEY` in `.env` still work. Channel tokens there apply to your first bot.
+> Prefer config files? `DISCORD_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN`, `SLACK_BOT_TOKEN` + `SLACK_APP_TOKEN`, `QQ_APP_ID` + `QQ_APP_SECRET` and `FLATKEY_API_KEY` in `.env` still work. Channel tokens there apply to your first bot.
 
 ## Control your costs
 
@@ -178,7 +179,7 @@ src/
   core/        brain.ts (reply logic), bots.ts (bot registry + settings), persona.ts (presets + prompt builder),
                secrets.ts (Flatkey key + channel tokens), types.ts
   channels/    manager.ts (per-bot connections, token verification, profile sync)
-  adapters/    discord.ts, telegram.ts, slack.ts
+  adapters/    discord.ts, telegram.ts, slack.ts, qq.ts
   knowledge/   store.ts (chunking + FTS5 search), ingest.ts (files, web pages)
   memory/      store.ts (SQLite), updater.ts (background memory pass)
   abilities/   search.ts

@@ -100,6 +100,7 @@ export const BASE_BOT: Omit<BotSettings, "id" | "createdAt"> = {
     discord: { enabled: true },
     telegram: { enabled: true },
     slack: { enabled: true },
+    qq: { enabled: true },
     web: { enabled: true, allowedOrigins: ["*"] },
   },
 };
@@ -308,7 +309,7 @@ export function sanitize(b: BotSettings): BotSettings {
   b.limits.memoryUpdateEvery = clamp(b.limits.memoryUpdateEvery, 3, 200, 12);
   b.limits.dailyTokenBudget = clamp(b.limits.dailyTokenBudget, 0, 1e10, 0);
   b.limits.maxImagesPerMessage = clamp(b.limits.maxImagesPerMessage, 1, 6, 2);
-  for (const c of ["discord", "telegram", "slack", "web"] as const) b.channels[c].enabled = Boolean(b.channels[c].enabled);
+  for (const c of ["discord", "telegram", "slack", "qq", "web"] as const) b.channels[c].enabled = Boolean(b.channels[c]?.enabled);
   b.channels.web.allowedOrigins = (Array.isArray(b.channels.web.allowedOrigins) ? b.channels.web.allowedOrigins : ["*"])
     .map((o) => String(o).trim())
     .filter(Boolean);

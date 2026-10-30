@@ -143,6 +143,7 @@ const PLATFORM = {
   discord: { icon: "🎮", name: "Discord" },
   telegram: { icon: "✈️", name: "Telegram" },
   slack: { icon: "💼", name: "Slack" },
+  qq: { icon: "🐧", name: "QQ" },
   web: { icon: "🌐", name: "Website" },
 };
 
@@ -233,7 +234,7 @@ function tabOverview(b) {
       <div class="stat"><span>Tokens today</span><b>${fmt(s.tokensToday)}</b><small>${b.limits.dailyTokenBudget ? `${Math.round((s.tokensToday / b.limits.dailyTokenBudget) * 100)}% of daily budget` : "no daily cap"}</small></div>
       <div class="stat"><span>People remembered</span><b>${fmt(s.people)}</b><small>across ${fmt(s.rooms)} chat room(s)</small></div>
       <div class="stat"><span>Knowledge base</span><b>${fmt(s.knowledge.docs)}</b><small>${b.knowledge.strict ? "answers only from docs" : "documents"}</small></div>
-      <div class="stat"><span>Live channels</span><b>${s.channels.filter((c) => c.running).length}</b><small>of 4</small></div>
+      <div class="stat"><span>Live channels</span><b>${s.channels.filter((c) => c.running).length}</b><small>of ${s.channels.length}</small></div>
     </div>
     <div class="card"><h3>At a glance</h3><div class="chips">
       ${chips(b.features.memory, "🧠 memory")} ${chips(b.features.search && !b.knowledge.strict, "🔎 web search")} ${chips(b.features.vision, "🖼️ image reading")}
@@ -491,6 +492,17 @@ const CHANNEL_HELP = {
       "<b>Install to Workspace</b>, copy the bot token, then paste both tokens below. Invite the bot with <code>/invite @YourBot</code>.",
     ],
   },
+  qq: {
+    fields: [["appId", "AppID", "q.qq.com → your bot → 开发管理 (Development)"], ["appSecret", "AppSecret", "Same page. Generate it if you haven't yet."]],
+    steps: [
+      'Sign in to the <a href="https://q.qq.com/" target="_blank" rel="noopener">QQ Bot Open Platform (QQ开放平台)</a> and create a bot (创建机器人).',
+      "Open <b>开发管理 (Development)</b>, then copy the <b>AppID</b> and generate the <b>AppSecret</b>.",
+      "On the same page, add this server's public IP to the <b>IP白名单 (IP allowlist)</b>. QQ blocks API calls from other IPs.",
+      "Under <b>沙箱配置 (Sandbox)</b>, add your QQ account and a test group so you can try the bot before it's published.",
+      "Paste the AppID and AppSecret below and connect. The bot answers @-mentions in groups, private chats and QQ guild channels.",
+      "Optional, for group memory: group settings → <b>群机器人</b> → let the bot receive all messages, not only @-mentions.",
+    ],
+  },
 };
 
 function tabChannels(b) {
@@ -499,7 +511,8 @@ function tabChannels(b) {
     const P = PLATFORM[c.platform];
     const status = c.running ? `<span class="dot ok"></span>Live${c.identity ? ` as <b>${esc(c.identity.account)}</b>` : c.detail ? ` · ${esc(c.detail)}` : ""}`
       : c.bound ? `<span class="dot"></span>${esc(c.detail)}` : `<span class="dot bad"></span>Not connected`;
-    const link = c.identity?.link ? `<a class="btn ghost small" href="${esc(c.identity.link)}" target="_blank" rel="noopener">${c.platform === "discord" ? "Invite to a server ↗" : c.platform === "telegram" ? "Open in Telegram ↗" : "Open workspace ↗"}</a>` : "";
+    const linkLabel = { discord: "Invite to a server ↗", telegram: "Open in Telegram ↗", slack: "Open workspace ↗", qq: "Open QQ Bot console ↗" }[c.platform];
+    const link = c.identity?.link ? `<a class="btn ghost small" href="${esc(c.identity.link)}" target="_blank" rel="noopener">${linkLabel}</a>` : "";
     return `
       <div class="card channel" data-platform="${c.platform}">
         <div class="row"><b class="ch-title">${P.icon} ${P.name}</b>
@@ -509,7 +522,7 @@ function tabChannels(b) {
         <details ${c.bound ? "" : "open"}><summary>${c.bound ? "Replace token" : "How to connect"}</summary>
           <ol class="howto">${h.steps.map((s) => `<li>${s}</li>`).join("")}</ol>
           <form class="bind-form" data-bind="${c.platform}">
-            ${h.fields.map(([k, label, hint]) => `<label>${label}<small>${hint}</small><input name="${k}" type="password" autocomplete="off" spellcheck="false" required /></label>`).join("")}
+            ${h.fields.map(([k, label, hint]) => `<label>${label}<small>${hint}</small><input name="${k}" type="${k === "appId" ? "text" : "password"}" autocomplete="off" spellcheck="false" required /></label>`).join("")}
             <div class="actions"><button class="btn primary">Connect ${P.name}</button></div>
             <p class="error small" data-err></p>
           </form>

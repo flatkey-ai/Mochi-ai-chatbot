@@ -5,8 +5,9 @@ import type { PlatformAdapter } from "../core/types.ts";
 import { DiscordAdapter } from "../adapters/discord.ts";
 import { TelegramAdapter } from "../adapters/telegram.ts";
 import { SlackAdapter } from "../adapters/slack.ts";
+import { QQAdapter, qqAccessToken } from "../adapters/qq.ts";
 
-export const CHANNEL_PLATFORMS: ChannelPlatform[] = ["discord", "telegram", "slack"];
+export const CHANNEL_PLATFORMS: ChannelPlatform[] = ["discord", "telegram", "slack", "qq"];
 
 export interface ChannelIdentity {
   /** Bot account name on the platform, e.g. "Mochi#1234" or "@mochi_bot". */
@@ -31,6 +32,8 @@ export interface EnvChannelTokens {
   telegram?: string;
   slackBot?: string;
   slackApp?: string;
+  qqAppId?: string;
+  qqAppSecret?: string;
 }
 
 type Fetch = typeof fetch;
@@ -82,6 +85,8 @@ export class ChannelManager {
       if (!creds.telegram && this.env.telegram) (creds.telegram = { token: this.env.telegram }), (source.telegram = "env");
       if (!creds.slack && this.env.slackBot && this.env.slackApp)
         (creds.slack = { botToken: this.env.slackBot, appToken: this.env.slackApp }), (source.slack = "env");
+      if (!creds.qq && this.env.qqAppId && this.env.qqAppSecret)
+        (creds.qq = { appId: this.env.qqAppId, appSecret: this.env.qqAppSecret }), (source.qq = "env");
     }
     return { creds, source };
   }
@@ -225,6 +230,15 @@ export class ChannelManager {
         if (!r.ok) throw new Error("invalid");
         return { account: `@${r.result.username}`, link: `https://t.me/${r.result.username}` };
       }
+      if (platform === "qq") {
+        const { token } = await qqAccessToken(creds.qq!.appId, creds.qq!.appSecret, this.http).catch(() => {
+          throw new Error("invalid");
+        });
+        const me = await this.getJson("https://api.sgroup.qq.com/users/@me", {
+          headers: { authorization: `QQBot ${token}`, "x-union-appid": creds.qq!.appId },
+        }).catch(() => null);
+        return { account: me?.username ? `${me.username} (AppID ${creds.qq!.appId})` : `AppID ${creds.qq!.appId}`, link: "https://q.qq.com/" };
+      }
       const auth = await this.getJson("https://slack.com/api/auth.test", {
         method: "POST",
         headers: { authorization: `Bearer ${creds.slack!.botToken}` },
@@ -244,6 +258,7 @@ export class ChannelManager {
     } catch (err) {
       const m = (err as Error).message;
       if (/Message Content|app-level|app token|bot token/.test(m)) throw new Error(m);
+      if (platform === "qq") throw new Error("QQ rejected this AppID / AppSecret. Copy both again from q.qq.com → your bot → 开发管理 (Development) and retry.");
       throw new Error(`${cap(platform)} rejected this token. Copy it again from the ${platform === "telegram" ? "@BotFather chat" : "developer portal"} and retry.`);
     }
   }
@@ -258,6 +273,7 @@ export class ChannelManager {
   private makeAdapter(botId: string, p: ChannelPlatform, c: ChannelCreds): PlatformAdapter {
     if (p === "discord") return new DiscordAdapter(botId, c.discord!.token, this.brain);
     if (p === "telegram") return new TelegramAdapter(botId, c.telegram!.token, this.brain);
+    if (p === "qq") return new QQAdapter(botId, c.qq!.appId, c.qq!.appSecret, this.brain);
     return new SlackAdapter(botId, c.slack!.botToken, c.slack!.appToken, this.brain);
   }
 }
@@ -272,13 +288,18 @@ function parseCreds(platform: ChannelPlatform, input: Record<string, unknown>): 
     if (!/^\d+:[\w-]{20,}$/.test(s("token"))) throw new Error("A Telegram bot token looks like 123456789:AA… (from @BotFather).");
     return { telegram: { token: s("token") } };
   }
+  if (platform === "qq") {
+    if (!/^\d{5,}$/.test(s("appId"))) throw new Error("The QQ AppID is a number, e.g. 102012345 (q.qq.com → 开发管理).");
+    if (s("appSecret").length < 8) throw new Error("Paste the AppSecret from q.qq.com → 开发管理 (Development).");
+    return { qq: { appId: s("appId"), appSecret: s("appSecret") } };
+  }
   if (!s("botToken").startsWith("xoxb-")) throw new Error("The Slack bot token starts with xoxb-.");
   if (!s("appToken").startsWith("xapp-")) throw new Error("The Slack app-level token starts with xapp-.");
   return { slack: { botToken: s("botToken"), appToken: s("appToken") } };
 }
 
 function tokensOf(c: ChannelCreds): string[] {
-  return [c.discord?.token, c.telegram?.token, c.slack?.botToken, c.slack?.appToken].filter((t): t is string => Boolean(t));
+  return [c.discord?.token, c.telegram?.token, c.slack?.botToken, c.slack?.appToken, c.qq?.appId].filter((t): t is string => Boolean(t));
 }
 
 const json = (body: unknown): RequestInit => ({
