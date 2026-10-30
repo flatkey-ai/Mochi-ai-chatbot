@@ -1,3 +1,4 @@
+import { isPrivateHost } from "../core/net-guard.ts";
 import type { ImageInput } from "../core/types.ts";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -9,6 +10,10 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
  */
 export async function fetchAsDataUrl(url: string, headers: Record<string, string> = {}): Promise<ImageInput | null> {
   try {
+    // Attachment URLs come from platform payloads, i.e. partly user-controlled. Don't let
+    // one aim this server at itself or at a cloud metadata endpoint, even for 20 seconds.
+    const parsed = new URL(url);
+    if (!/^https?:$/.test(parsed.protocol) || isPrivateHost(parsed.hostname)) return null;
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
     if (!res.ok) return null;
     const mime = (res.headers.get("content-type") ?? "image/jpeg").split(";")[0];

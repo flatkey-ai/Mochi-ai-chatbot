@@ -645,6 +645,12 @@ async function tabAbilities(b) {
       <div class="toggle-row"><div><b>🖼️ ${t("Image reading")}</b><p class="muted small">${t("Reads images people send, using the vision model. Image input uses more tokens than text.")}</p></div><label class="switch"><input type="checkbox" id="f-vision" ${b.features.vision ? "checked" : ""} /><span></span></label></div>
     </div>
     <div class="card">
+      <h3>${t("Safety")}</h3>
+      <p class="muted small">${t("Chat messages, documents and search results can contain text aimed at the model. These guards are deterministic: they run in the server, not in the model.")}</p>
+      <div class="toggle-row"><div><b>🛡️ ${t("Prompt safeguard")}</b><p class="muted small">${t("Strips role and template syntax from untrusted text, marks quoted passages as data, refuses search queries that carry URLs or tokens, and drops any reply that leaks its instructions.")}</p></div><label class="switch"><input type="checkbox" id="sfg-prompt" ${b.safeguard?.prompt !== false ? "checked" : ""} /><span></span></label></div>
+      <div class="toggle-row"><div><b>🕵️ ${t("Scrub secrets from replies")}</b><p class="muted small">${t("Removes anything that looks like an API key or token from what the bot says, and blanks out any credential this server knows.")}</p></div><label class="switch"><input type="checkbox" id="sfg-redact" ${b.safeguard?.redactSecrets !== false ? "checked" : ""} /><span></span></label></div>
+    </div>
+    <div class="card">
       <h3>${t("Limits")}</h3>
       <div class="grid3">
         <label>${t("Daily token budget")}<small>${t("0 = no cap. The bot goes quiet once it's reached.")}</small>${n("l-budget", b.limits.dailyTokenBudget, 0)}</label>
@@ -653,6 +659,7 @@ async function tabAbilities(b) {
         <label>${t("Memory update every N messages")}${n("l-every", b.limits.memoryUpdateEvery, 3)}</label>
         <label>${t("Max web searches per reply")}${n("l-searches", b.search.maxSearchesPerReply, 1, 5)}</label>
         <label>${t("Max images per message")}${n("l-images", b.limits.maxImagesPerMessage, 1, 6)}</label>
+        <label>${t("Messages per minute per person")}<small>${t("0 = no limit. Stops one person looping the bot and burning the budget.")}</small>${n("l-flood", b.safeguard?.floodPerMinute ?? 20, 0, 120)}</label>
       </div>
       <label class="inline">${t("Search protocol")}
         <select id="s-mode"><option value="messages" ${b.search.mode === "messages" ? "selected" : ""}>Anthropic web_search (/v1/messages)</option><option value="responses" ${b.search.mode === "responses" ? "selected" : ""}>OpenAI web_search (/v1/responses)</option></select></label>
@@ -660,9 +667,12 @@ async function tabAbilities(b) {
     <div class="sticky-save"><button class="btn primary" id="save-abilities">${t("Save")}</button></div>`;
   wirePickers($("#tab"));
   for (const k of ["memory", "search", "vision"]) $("#f-" + k).addEventListener("change", (e) => saveBot({ features: { [k]: e.target.checked } }, featureToast[k][e.target.checked ? 0 : 1]));
+  $("#sfg-prompt").addEventListener("change", (e) => saveBot({ safeguard: { prompt: e.target.checked } }, e.target.checked ? t("Safeguard on") : t("Safeguard off")));
+  $("#sfg-redact").addEventListener("change", (e) => saveBot({ safeguard: { redactSecrets: e.target.checked } }, e.target.checked ? t("Secret scrubbing on") : t("Secret scrubbing off")));
   $("#save-abilities").addEventListener("click", () => saveBot({
     models: Object.fromEntries(["chat", "vision", "memory", "search"].map((k) => [k, ($("#m-" + k + "-sel").value === "__custom" ? $("#m-" + k).value : $("#m-" + k + "-sel").value).trim()]).filter(([, v]) => v)),
     limits: { dailyTokenBudget: +$("#l-budget").value, maxReplyTokens: +$("#l-reply").value, historyMessages: +$("#l-history").value, memoryUpdateEvery: +$("#l-every").value, maxImagesPerMessage: +$("#l-images").value },
+    safeguard: { floodPerMinute: +$("#l-flood").value },
     search: { mode: $("#s-mode").value, maxSearchesPerReply: +$("#l-searches").value },
   }).then(() => viewBot(b.id, "abilities")).catch((err) => toast(err.message)));
 }

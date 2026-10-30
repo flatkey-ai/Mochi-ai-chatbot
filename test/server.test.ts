@@ -135,7 +135,7 @@ test("knowledge base: add text, file and test retrieval; the bot answers from it
   const badType = await j(`/api/admin/bots/${id}/knowledge/file`, { method: "POST", body: { filename: "x.exe", data: md } });
   assert.match(badType.body.error, /Unsupported file type/);
   const local = await j(`/api/admin/bots/${id}/knowledge/url`, { method: "POST", body: { url: "http://127.0.0.1:1/secret" } });
-  assert.match(local.body.error, /Private or local/);
+  assert.match(local.body.error, /Private, loopback or reserved/);
 
   const test = await j(`/api/admin/bots/${id}/knowledge/test`, { method: "POST", body: { question: "how long is the warranty?" } });
   assert.equal(test.body.hits[0].title, "warranty");

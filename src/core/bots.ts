@@ -46,6 +46,18 @@ export interface BotSettings {
   };
   models: { chat: string; vision: string; memory: string; search: string };
   features: { memory: boolean; search: boolean; vision: boolean };
+  /**
+   * Prompt-injection safeguards. All on by default; MOCHI_PROMPT_SAFEGUARD=0 turns the
+   * whole layer off for one process (debugging), per bot or server-wide.
+   */
+  safeguard: {
+    /** Neutralize untrusted text, delimit quoted data, canary + output guard. */
+    prompt: boolean;
+    /** Scrub credential-shaped strings (and known secrets) out of replies. */
+    redactSecrets: boolean;
+    /** Messages per minute per person; 0 disables the bucket. */
+    floodPerMinute: number;
+  };
   search: { mode: "messages" | "responses"; maxSearchesPerReply: number };
   triggers: {
     replyInDirectMessages: boolean;
@@ -94,6 +106,7 @@ export const BASE_BOT: Omit<BotSettings, "id" | "createdAt"> = {
   models: { chat: "deepseek-v4-1-flash", vision: "gpt-6-luna", memory: "deepseek-v4-1-flash", search: "claude-haiku-5-5" },
   features: { memory: true, search: true, vision: true },
   search: { mode: "messages", maxSearchesPerReply: 2 },
+  safeguard: { prompt: true, redactSecrets: true, floodPerMinute: 20 },
   triggers: { replyInDirectMessages: true, replyWhenMentioned: true, replyWhenNameSaid: true, randomReplyChance: 0 },
   limits: { maxReplyTokens: 600, historyMessages: 20, memoryUpdateEvery: 12, dailyTokenBudget: 0, maxImagesPerMessage: 2 },
   channels: {
@@ -300,6 +313,10 @@ export function sanitize(b: BotSettings): BotSettings {
   for (const k of Object.keys(d.features) as (keyof BotSettings["features"])[]) b.features[k] = Boolean(b.features[k]);
   b.search.mode = b.search.mode === "responses" ? "responses" : "messages";
   b.search.maxSearchesPerReply = clamp(b.search.maxSearchesPerReply, 1, 5, 2);
+  b.safeguard = b.safeguard ?? structuredClone(d.safeguard);
+  b.safeguard.prompt = Boolean(b.safeguard.prompt);
+  b.safeguard.redactSecrets = Boolean(b.safeguard.redactSecrets);
+  b.safeguard.floodPerMinute = clamp(b.safeguard.floodPerMinute, 0, 120, 20);
   b.triggers.replyInDirectMessages = Boolean(b.triggers.replyInDirectMessages);
   b.triggers.replyWhenMentioned = Boolean(b.triggers.replyWhenMentioned);
   b.triggers.replyWhenNameSaid = Boolean(b.triggers.replyWhenNameSaid);
