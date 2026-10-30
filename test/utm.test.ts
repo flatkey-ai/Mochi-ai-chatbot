@@ -5,7 +5,7 @@ import path from "node:path";
 import { flatkeyUrl } from "../src/flatkey/why.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
-const FILES = ["README.md", ".env.example", "public/widget/widget.js", "public/dashboard/index.html", "public/dashboard/app.js", "src/flatkey/why.ts", "src/server/app.ts"];
+const FILES = ["README.md", "README.zh-CN.md", "README.ja-JP.md", "README.pt-BR.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "SECURITY.md", ".github/ISSUE_TEMPLATE/config.yml", ".env.example", "public/widget/widget.js", "public/dashboard/index.html", "public/dashboard/app.js", "src/flatkey/why.ts", "src/server/app.ts"];
 const MEDIUMS = ["local_deploy", "dashboard", "github", "web_widget"];
 
 test("flatkeyUrl builds the full UTM set", () => {

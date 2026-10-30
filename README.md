@@ -1,9 +1,20 @@
 <div align="center">
 
-# 🍡 Mochi
+<img src="docs/banner.png" alt="Mochi: build your own AI chatbots for Discord, Telegram, Slack, QQ and your website" width="100%" />
 
-**Build your own AI chatbots for Discord, Telegram, Slack, QQ and your website.**
+<h3>Build your own AI chatbots for Discord, Telegram, Slack, QQ and your website.</h3>
+
 Companions that remember people, Q&A bots that answer from your docs, and a dashboard that controls every cent they spend.
+
+[![CI](https://github.com/flatkey-ai/Mochi-ai-chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/flatkey-ai/Mochi-ai-chatbot/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-ff6fae.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522.13-a98bff.svg)](https://nodejs.org)
+[![Powered by Flatkey](https://img.shields.io/badge/powered%20by-flatkey-2a2233.svg)](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_badge)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-2fb380.svg)](CONTRIBUTING.md)
+
+**English** · [简体中文](README.zh-CN.md) · [日本語](README.ja-JP.md) · [Português](README.pt-BR.md)
+
+[Quick start](#quick-start) · [Persona](#persona) · [Knowledge base](#knowledge-base-qa-bots) · [Channels](#channels) · [Costs](#control-your-costs) · [Deploy](#deploy)
 
 Powered by [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_header): **Official models. Better prices.**
 
@@ -38,6 +49,7 @@ A good chatbot isn't one model. Each Mochi bot uses **several kinds of model cal
 | 🧠 | **Memory** | Remembers each person in a chat (personality, things they've shared, interests) and what each room talks about. A small background model updates it every N messages. |
 | 🔎 | **Web search** | Looks up facts it isn't sure about through Flatkey and answers with sources. No separate search API key needed. |
 | 🖼️ | **Image reading** | Reads screenshots, memes and photos with a vision model you choose. |
+| 🌏 | **4 languages** | Dashboard, website widget and built-in replies in English, Português, 日本語 and 中文. Bots reply in each user's language. |
 | 🎛️ | **Cost control** | Pick a model per job, toggle abilities, set limits and a daily token budget per bot, and see usage per bot, ability and model. |
 
 ## Quick start
@@ -192,6 +204,10 @@ public/
 
 Adding a platform takes one adapter: convert incoming messages to `IncomingMessage` (with the `botId`), call `brain.handle()`, and send back the reply.
 
+## Contributing
+
+Bug reports, ideas, translations and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Found a security issue? Please follow [SECURITY.md](SECURITY.md).
+
 ## License
 
-MIT
+[MIT](LICENSE) · Made with 🍡 by the [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_footer) team

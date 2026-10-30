@@ -1,0 +1,36 @@
+name: 🐛 Bug report
+description: Something isn't working as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping make Mochi better! Please don't paste API keys or bot tokens.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where?
+      multiple: true
+      options: [Dashboard, Website widget, Discord, Telegram, Slack, QQ, Memory, Knowledge base, Web search, Image reading, Install / deploy]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Terminal output from `npm start`, with secrets removed.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Mochi version / commit
+      placeholder: e.g. 0.2.0 or a1b2c3d
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version and OS
+      placeholder: e.g. Node 22.13, macOS 15

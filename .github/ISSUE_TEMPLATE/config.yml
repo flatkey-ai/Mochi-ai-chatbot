@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Flatkey account, keys or billing
+    url: https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=issue_template
+    about: Questions about your Flatkey account, API keys or balance go to the Flatkey team.
