@@ -4,6 +4,8 @@
  * so one key covers chat, vision and grounded web search.
  */
 
+import { FLATKEY_BASE_URL, resolveFlatkeyBaseUrl } from "./why.ts";
+
 export interface ChatContentPart {
   type: "text" | "image_url";
   text?: string;
@@ -56,10 +58,11 @@ export class FlatkeyError extends Error {
 export class FlatkeyClient {
   constructor(
     private readonly apiKey: string,
-    readonly baseUrl = "https://router.flatkey.ai/v1",
+    readonly baseUrl = FLATKEY_BASE_URL,
     private readonly timeoutMs = 90_000,
   ) {
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
+    // Mochi runs on Flatkey only (localhost is allowed for the offline mock).
+    this.baseUrl = resolveFlatkeyBaseUrl(baseUrl);
   }
 
   private async post(path: string, body: unknown, extraHeaders: Record<string, string> = {}): Promise<any> {

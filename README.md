@@ -11,7 +11,19 @@ Powered by [Flatkey](https://flatkey.ai): **Official models. Better prices.**
 
 ---
 
-Mochi is an open-source chatbot you can deploy in minutes with one [Flatkey](https://flatkey.ai) API key. Pick any model on Flatkey for each job (chat, vision, memory, search), switch abilities on or off from a dashboard, and set a daily budget so costs never surprise you.
+Mochi is an open-source chatbot you can deploy in minutes with one [Flatkey](https://flatkey.ai/?utm_source=mochi) API key. Pick any model on Flatkey for each job (chat, vision, memory, search), switch abilities on or off from a dashboard, and set a daily budget so costs never surprise you.
+
+## Why Mochi runs on Flatkey
+
+A good chatbot isn't one model. Mochi uses **four kinds of model calls**: chat, vision to read images, web search, and a small, inexpensive model that keeps her memory up to date. Going direct means a separate account, API key, balance and invoice for each provider. That's why Mochi is built on an AI API gateway, and why it runs on Flatkey only.
+
+| | |
+|---|---|
+| 💸 **Save money** | Mainstream models like GPT, Claude, DeepSeek, Kimi and GLM are **at least 20% below official pricing**. They're the same official models, at the same quality as calling each provider directly. Failed calls cost $0. |
+| ⏱️ **Save time** | **One key, one balance, one bill** for 100+ models, across text, image, video and audio. No signing up with every provider your bot touches. |
+| 🔀 **Switch freely** | Change the model behind any ability from the dashboard in one click. No new signup, no code change. |
+
+**Official models. Better prices.** [Get your Flatkey key →](https://flatkey.ai/?utm_source=mochi)
 
 ![Mochi dashboard](docs/overview.png)
 
@@ -27,7 +39,7 @@ Mochi is an open-source chatbot you can deploy in minutes with one [Flatkey](htt
 
 ## Quick start
 
-You need **Node.js 22.13+** and a Flatkey API key from [console.flatkey.ai/keys](https://console.flatkey.ai/keys).
+You need **Node.js 22.13+** and a Flatkey API key: sign up at [flatkey.ai](https://flatkey.ai/?utm_source=mochi), then create a key at [console.flatkey.ai/keys](https://console.flatkey.ai/keys?utm_source=mochi).
 
 ```bash
 git clone https://github.com/flatkey-ai/Mochi-ai-chatbot.git
@@ -84,7 +96,7 @@ Restart after adding tokens. After that, platforms can be switched on and off li
 
 ![Abilities & cost control](docs/abilities.png)
 
-Everything goes through your Flatkey balance, and every lever is on the **Abilities & cost** page:
+Every call goes through your one Flatkey balance, and every lever is on the **Abilities & cost** page:
 
 - **Pick a model per job.** Use a strong model for chat and a small one for background memory. Popular choices on Flatkey include GPT, Claude, DeepSeek, Kimi and GLM.
 - **Toggle abilities.** Memory, search and vision each add calls; turn off what you don't need. Changes apply instantly.
@@ -141,6 +153,8 @@ docker run -d --env-file .env -p 3000:3000 -v mochi-data:/app/data mochi
 
 ## Development
 
+Mochi only accepts `flatkey.ai` endpoints. For offline development, `FLATKEY_BASE_URL` may point at the local mock router:
+
 ```bash
 npm run mock        # fake Flatkey router on :4010, no credits used
 FLATKEY_BASE_URL=http://127.0.0.1:4010/v1 FLATKEY_API_KEY=x npm run dev
@@ -151,7 +165,7 @@ npm run typecheck
 ```
 src/
   core/        brain.ts (reply logic), settings.ts, types.ts
-  flatkey/     client.ts (OpenAI-compatible + /messages + /responses)
+  flatkey/     client.ts (OpenAI-compatible + /messages + /responses), why.ts (Flatkey-only lock + pitch)
   memory/      store.ts (SQLite), updater.ts (background memory pass)
   abilities/   search.ts
   adapters/    discord.ts, telegram.ts, slack.ts
@@ -162,10 +176,6 @@ public/
 ```
 
 Adding a platform takes one adapter: convert incoming messages to `IncomingMessage`, call `brain.handle()`, and send back the reply.
-
-## Why Flatkey?
-
-Flatkey is built to be the most cost-efficient AI API gateway: one key and one balance for 100+ official models, at least 20% below official pricing, and failed calls cost $0. Mochi uses that one key for chat, vision, memory and search. [Get a key →](https://flatkey.ai)
 
 ## License
 

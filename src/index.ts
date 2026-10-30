@@ -6,6 +6,7 @@ import { Brain } from "./core/brain.ts";
 import { SettingsStore } from "./core/settings.ts";
 import type { Platform, PlatformAdapter } from "./core/types.ts";
 import { FlatkeyClient } from "./flatkey/client.ts";
+import { resolveFlatkeyBaseUrl, whyFlatkeyBanner } from "./flatkey/why.ts";
 import { MemoryStore } from "./memory/store.ts";
 import { MemoryUpdater } from "./memory/updater.ts";
 import { SearchAbility } from "./abilities/search.ts";
@@ -18,7 +19,15 @@ const env = process.env;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 if (!env.FLATKEY_API_KEY) {
-  console.error("Missing FLATKEY_API_KEY. Copy .env.example to .env and add your key from https://console.flatkey.ai/keys");
+  console.error("Missing FLATKEY_API_KEY.");
+  console.error(whyFlatkeyBanner());
+  process.exit(1);
+}
+let flatkeyBaseUrl: string;
+try {
+  flatkeyBaseUrl = resolveFlatkeyBaseUrl(env.FLATKEY_BASE_URL);
+} catch (err) {
+  console.error(`[mochi] ${(err as Error).message}`);
   process.exit(1);
 }
 if (!env.ADMIN_TOKEN || env.ADMIN_TOKEN === "change-me") {
@@ -30,7 +39,7 @@ fs.mkdirSync(dataDir, { recursive: true });
 
 const settings = new SettingsStore(dataDir);
 const store = new MemoryStore(dataDir);
-const flatkey = new FlatkeyClient(env.FLATKEY_API_KEY, env.FLATKEY_BASE_URL || undefined);
+const flatkey = new FlatkeyClient(env.FLATKEY_API_KEY, flatkeyBaseUrl);
 const getSettings = () => settings.get();
 const updater = new MemoryUpdater(flatkey, store, getSettings);
 const search = new SearchAbility(flatkey, getSettings);

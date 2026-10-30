@@ -102,6 +102,18 @@ function fill() {
   $("#widget-snippet").textContent = `<script src="${state.publicUrl}/widget/widget.js" data-server="${state.publicUrl}" defer></script>`;
   renderPlatforms();
   renderAbilityChips();
+  renderWhyFlatkey();
+}
+
+const WHY_ICONS = ["💸", "⏱️", "🔀"];
+function renderWhyFlatkey() {
+  const w = state.whyFlatkey;
+  if (!w) return;
+  $("#why-flatkey").innerHTML = `
+    <h3>Why Mochi runs on Flatkey</h3>
+    <p class="slogan">${esc(w.slogan)}</p>
+    <div class="why-grid">${w.points.map((p, i) => `<div><b>${WHY_ICONS[i] || "✨"} ${esc(p.title)}</b><p>${esc(p.body)}</p></div>`).join("")}</div>
+    <div class="actions" style="justify-content:flex-start"><a class="btn primary" href="${esc(w.signupUrl)}" target="_blank" rel="noopener">Open Flatkey</a></div>`;
 }
 
 function renderAbilityChips() {

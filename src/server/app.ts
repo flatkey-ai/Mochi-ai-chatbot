@@ -6,6 +6,7 @@ import type { SettingsStore } from "../core/settings.ts";
 import type { Platform, PlatformAdapter } from "../core/types.ts";
 import type { FlatkeyClient, FlatkeyModel } from "../flatkey/client.ts";
 import type { MemoryStore } from "../memory/store.ts";
+import { FLATKEY_SIGNUP_URL, WHY_FLATKEY } from "../flatkey/why.ts";
 
 export interface ServerDeps {
   brain: Brain;
@@ -89,6 +90,7 @@ export function createServer(d: ServerDeps) {
     res.json({
       settings: s,
       flatkeyBaseUrl: d.flatkey.baseUrl,
+      whyFlatkey: { ...WHY_FLATKEY, signupUrl: FLATKEY_SIGNUP_URL },
       publicUrl: d.publicUrl,
       tokensToday: d.store.tokensToday(),
       platforms: PLATFORMS.map((p) => ({
