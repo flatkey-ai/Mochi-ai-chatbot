@@ -537,6 +537,24 @@ const SLACK_MANIFEST = {
   },
 };
 
+// Sealos gives a free public HTTPS domain + a volume, which is the only realistic way for a
+// non-technical user to satisfy LINE's "your server must be reachable" requirement. Every link
+// carries flatkey attribution.
+const SEALOS_DEPLOY_URL =
+  "https://sealos.io/?utm_source=flatkey&utm_medium=mochi_bot&utm_campaign=mochi&utm_content=line_card";
+const DEPLOY_GUIDE_URL = "https://github.com/flatkey-ai/Mochi-ai-chatbot/blob/main/deploy/README.md";
+
+/** Shown on channels that need the server to be reachable from the internet. */
+const deployCallout = () => `
+  <div class="callout">
+    <b>🌍 ${t("This channel calls your server, so it needs a public HTTPS address — the other channels don't.")}</b>
+    <p class="muted small">${t("Deploy the image from this repo to Sealos: free HTTPS domain, a volume for your data, single container. Then put that domain in PUBLIC_URL and use it as the LINE webhook.")}</p>
+    <div class="actions left">
+      <a class="btn primary small" href="${SEALOS_DEPLOY_URL}" target="_blank" rel="noopener">${t("Deploy to Sealos ↗")}</a>
+      <a class="btn ghost small" href="${DEPLOY_GUIDE_URL}" target="_blank" rel="noopener">${t("Deployment guide ↗")}</a>
+    </div>
+  </div>`;
+
 const CHANNEL_HELP = () => ({
   discord: {
     fields: [["token", t("Bot token"), t("From Discord → your app → Bot → Reset Token")]],
@@ -572,6 +590,7 @@ const CHANNEL_HELP = () => ({
     ],
   },
   line: {
+    needsPublicHttps: true,
     fields: [
       ["channelAccessToken", t("Channel access token"), t("Messaging API → Channel access token (long-lived)")],
       ["channelSecret", t("Channel secret"), t("Basic settings → Channel secret")],
@@ -620,6 +639,7 @@ function tabChannels(b) {
         ${link}
         ${installLink}
         <details ${c.bound ? "" : "open"}><summary>${c.bound ? t("Replace token") : t("How to connect")}</summary>
+          ${h.needsPublicHttps ? deployCallout() : ""}
           <ol class="howto">${h.steps.map((s) => `<li>${s}</li>`).join("")}</ol>
           ${h.manifest ? `<p class="muted small">${t("Paste this manifest (From a manifest → paste → Next → Create):")}</p>
           <pre class="snippet" data-manifest="${c.platform}">${esc(h.manifest)}</pre>

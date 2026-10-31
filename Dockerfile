@@ -1,9 +1,18 @@
 # Mochi — container image.
 #
-# The app runs TypeScript directly through tsx (no build step; tsconfig is noEmit), so tsx has
-# to exist at runtime even though it is a devDependency. That is why the install below keeps dev
-# dependencies — do not put NODE_ENV=production on that step or the container starts and then
-# fails to resolve tsx.
+# Two stages on purpose: dependencies are installed on the *build* platform and copied into the
+# target image. Installing under QEMU (the arm64 half of a multi-arch build) makes npm die with
+# exit code 132 / SIGILL, and every dependency here is pure JavaScript, so an installed tree is
+# portable between architectures. This keeps linux/arm64 working without emulating npm.
+#
+# The app runs TypeScript through tsx (no build step; tsconfig is noEmit), so tsx must exist at
+# runtime even though npm classifies it as a devDependency: never put NODE_ENV=production before
+# the install, or npm ci drops tsx and the container starts and then dies.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev --no-audit --no-fund && npm cache clean --force
+
 FROM node:22-alpine
 
 # tini forwards SIGTERM and reaps zombies, so the app's shutdown handler runs on pod stop.
@@ -11,11 +20,8 @@ RUN apk add --no-cache tini
 
 WORKDIR /app
 
-# Dependencies first, so this layer is cached across source changes.
-COPY package.json package-lock.json ./
-RUN npm ci --include=dev --no-audit --no-fund && npm cache clean --force
-
-COPY tsconfig.json ./
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json tsconfig.json ./
 COPY src ./src
 COPY public ./public
 COPY docs ./docs
