@@ -14,6 +14,29 @@
 - `public/widget/*` 聊天窗口 → 丢到 Vercel 当静态站（或者直接由 Mochi 自己托管，它本来就会 serve）。
 - 想做反向代理/自定义域名 → 用 Vercel 的 `rewrites` 指向你真正的容器地址，但 bot 仍必须跑在容器里。
 
+## 镜像已经发布
+
+`.github/workflows/docker.yml` 在 `main` 上构建并推送到 GitHub Container Registry：
+
+| tag | 何时产生 |
+|---|---|
+| `ghcr.io/flatkey-ai/mochi:latest` | 每次 push 到 `main` |
+| `ghcr.io/flatkey-ai/mochi:sha-<短 sha>` | 每次 push（便于回滚） |
+| `ghcr.io/flatkey-ai/mochi:1.2.3`、`:1.2` | 打 `v1.2.3` tag 时 |
+
+多架构：`linux/amd64`（Sealos / Railway / Render / VPS）+ `linux/arm64`（Apple Silicon、Oracle 免费额度、Hetzner CAX）。
+
+> **GHCR 包默认是私有的。** 一键部署要给陌生人用，先把它改成公开（点一次）：
+> <https://github.com/orgs/flatkey-ai/packages/container/mochi/settings> → **Change visibility → Public**
+>
+> 不想公开也行，用 pull secret：
+> ```bash
+> kubectl create secret docker-registry ghcr-pull \
+>   --docker-server=ghcr.io --docker-username=<你的 GitHub 用户名> \
+>   --docker-password=<带 read:packages 的 PAT>
+> ```
+> 然后取消 `deploy/sealos/mochi.yaml` 里 `imagePullSecrets` 两行的注释。
+
 ## 能跑的地方（都支持 Dockerfile + 持久卷 + 常驻）
 
 | 平台 | 一键程度 | 持久卷 | 免费额度 | 适合谁 |
@@ -34,7 +57,7 @@
 
 图形界面「应用管理 / App Launchpad」，不需要写 YAML：
 
-1. **镜像**：`ghcr.io/<你的账号>/mochi:latest`（或 Sealos 里直接用 GitHub 构建，见 `deploy/sealos/mochi.yaml` 顶部注释）
+1. **镜像**：`ghcr.io/flatkey-ai/mochi:latest`（私有就先按上一节改成 public 或配 pull secret）
 2. **环境变量**：
    ```
    ADMIN_TOKEN=<32 字节随机串，见下方命令>
