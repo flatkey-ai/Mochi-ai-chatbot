@@ -46,6 +46,7 @@ test("the factory builds the right adapter for every chat platform", () => {
     { platform: "telegram", token: "1:abc" },
     { platform: "slack", botToken: "xoxb-1", appToken: "xapp-1" },
     { platform: "qq", appId: "102012345", appSecret: "secret1234" },
+    { platform: "line", channelAccessToken: "x".repeat(120), channelSecret: "0123456789abcdef0123456789abcdef" },
   ];
   for (const creds of cases) {
     const adapter = createChannelAdapter("mochi", creds, brain);
@@ -57,7 +58,7 @@ test("the factory builds the right adapter for every chat platform", () => {
   }
   assert.equal(isChatPlatform("web"), false);
   assert.equal(isChatPlatform("discord"), true);
-  assert.deepEqual(CHAT_PLATFORMS.sort(), ["discord", "qq", "slack", "telegram"]);
+  assert.deepEqual(CHAT_PLATFORMS.sort(), ["discord", "line", "qq", "slack", "telegram"]);
 });
 
 test("history is only promised where the platform can actually deliver it", async () => {
