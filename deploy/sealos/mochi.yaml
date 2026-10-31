@@ -12,6 +12,16 @@
 #
 # Values marked CHANGE-ME must be replaced. Single replica on purpose: SQLite (WAL) does not
 # support concurrent writers, and a Telegram bot token may only be polled by one instance.
+# The image is published by .github/workflows/docker.yml to GHCR as
+#   ghcr.io/flatkey-ai/mochi:latest   (+ :sha-<short>, and semver tags for v* releases)
+#
+# GHCR packages start PRIVATE. Either make it public once
+#   https://github.com/orgs/flatkey-ai/packages/container/mochi/settings  → Change visibility
+# or create a pull secret and reference it from the Deployment (both shown below).
+#
+#   kubectl create secret docker-registry ghcr-pull \
+#     --docker-server=ghcr.io --docker-username=<your-github-user> \
+#     --docker-password=<PAT with read:packages>
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -63,8 +73,11 @@ spec:
       containers:
         - name: mochi
           # CHANGE-ME: your image, e.g. ghcr.io/OWNER/mochi:latest
-          image: ghcr.io/OWNER/mochi:latest
+          image: ghcr.io/flatkey-ai/mochi:latest
           imagePullPolicy: IfNotPresent
+          # Uncomment if the GHCR package stays private:
+          # imagePullSecrets:
+          #   - name: ghcr-pull
           ports:
             - { name: http, containerPort: 3000 }
           envFrom:
