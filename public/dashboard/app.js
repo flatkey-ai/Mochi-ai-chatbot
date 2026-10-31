@@ -507,6 +507,33 @@ async function tabKnowledge(b) {
 }
 
 // Channels tab
+/**
+ * The Slack app manifest. "From a manifest" is one paste instead of ticking 8 scopes and
+ * 4 events by hand, and it is the only way to get app_home / messages tab right (Slack
+ * answers DMs with "Sending messages to this app has been turned off." when it is missing).
+ * Keep in sync with docs/slack-app-manifest.json (test/slack-manifest.test.ts enforces it).
+ */
+const SLACK_MANIFEST = {
+  display_information: {
+    name: "Mochi",
+    description: "Your AI chatbot: personas, memory, knowledge base and web search.",
+    background_color: "#ff6fae",
+  },
+  features: {
+    app_home: { home_tab_enabled: false, messages_tab_enabled: true, messages_tab_read_only_enabled: false },
+    bot_user: { display_name: "Mochi", always_online: true },
+  },
+  oauth_config: {
+    scopes: {
+      bot: ["app_mentions:read", "channels:history", "channels:read", "groups:history", "im:history", "chat:write", "users:read", "files:read"],
+    },
+  },
+  settings: {
+    event_subscriptions: { bot_events: ["app_mention", "message.channels", "message.groups", "message.im"] },
+    socket_mode_enabled: true,
+  },
+};
+
 const CHANNEL_HELP = () => ({
   discord: {
     fields: [["token", t("Bot token"), t("From Discord → your app → Bot → Reset Token")]],
@@ -531,13 +558,12 @@ const CHANNEL_HELP = () => ({
       ["botToken", t("Bot token (xoxb-…)"), t("OAuth & Permissions → OAuth Tokens → Bot User OAuth Token")],
       ["appToken", t("App-level token (xapp-…)"), t("Basic Information → App-Level Tokens → Generate Token and Scopes → connections:write")],
     ],
+    manifest: JSON.stringify(SLACK_MANIFEST, null, 2),
     steps: [
-      t('Create an app at <a href="https://api.slack.com/apps" target="_blank" rel="noopener">api.slack.com/apps</a> → <b>Create New App</b>. Pick <b>Blank app</b> (the old "From scratch"), or use <b>From a manifest</b> with <code>docs/slack-app-manifest.json</code> from this repo to get the scopes and events below filled in.'),
-      t("<b>Settings → Socket Mode</b> → turn it on, then <b>Basic Information → App-Level Tokens → Generate Token and Scopes</b>: name it <code>socket</code>, <b>Add Scope</b> → <code>connections:write</code> → <b>Generate</b> → copy the <code>xapp-…</code> token."),
-      t("<b>OAuth & Permissions → Scopes → Bot Token Scopes</b>: <code>app_mentions:read channels:history channels:read groups:history im:history chat:write users:read files:read</code>."),
-      t("<b>Event Subscriptions → Subscribe to bot events</b>: <code>app_mention message.channels message.groups message.im</code>."),
-      t("<b>OAuth & Permissions → OAuth Tokens</b> → <b>Install to Workspace</b> → Allow → copy the <b>Bot User OAuth Token</b> (<code>xoxb-…</code>), then paste both tokens below."),
-      t('<b>Features → App Home → Show Tabs → Messages Tab</b>: tick <b>Allow users to send Slash commands and messages from the messages tab</b>. Without it Slack answers DMs with "Sending messages to this app has been turned off." and the bot never sees them.'),
+      t('Create an app at <a href="https://api.slack.com/apps" target="_blank" rel="noopener">api.slack.com/apps</a> → <b>Create New App</b> → <b>From a manifest</b> → pick your workspace → paste the JSON below (the button copies it) → <b>Next → Create</b>.'),
+      t("The manifest already sets Socket Mode, the 8 bot scopes, the 4 events and the Messages tab — no ticking required. Keep <b>Socket Mode</b> on under Settings if you turn it off later."),
+      t("<b>Basic Information → App-Level Tokens → Generate Token and Scopes</b>: name it <code>socket</code>, <b>Add Scope</b> → <code>connections:write</code> → <b>Generate</b> → copy the <code>xapp-…</code> token."),
+      t("<b>OAuth & Permissions → OAuth Tokens → Install to Workspace</b> → Allow → copy the <b>Bot User OAuth Token</b> (<code>xoxb-…</code>), then paste both tokens below."),
       t('Invite it with <code>/invite @YourBot</code> — a bot sees nothing in a channel it has not joined. Its name and icon live under <b>App Home</b>.'),
     ],
   },
@@ -571,6 +597,9 @@ function tabChannels(b) {
         ${link}
         <details ${c.bound ? "" : "open"}><summary>${c.bound ? t("Replace token") : t("How to connect")}</summary>
           <ol class="howto">${h.steps.map((s) => `<li>${s}</li>`).join("")}</ol>
+          ${h.manifest ? `<p class="muted small">${t("Paste this manifest (From a manifest → paste → Next → Create):")}</p>
+          <pre class="snippet" data-manifest="${c.platform}">${esc(h.manifest)}</pre>
+          <div class="actions left"><button type="button" class="btn ghost small" data-copy-manifest="${c.platform}">${t("Copy manifest")}</button></div>` : ""}
           <form class="bind-form" data-bind="${c.platform}">
             ${h.fields.map(([k, label, hint]) => `<label>${label}<small>${hint}</small><input name="${k}" type="${k === "appId" ? "text" : "password"}" autocomplete="off" spellcheck="false" required /></label>`).join("")}
             <div class="actions"><button class="btn primary">${t("Connect {platform}", { platform: P.name })}</button></div>
@@ -623,6 +652,19 @@ function tabChannels(b) {
   $("#w-on").addEventListener("change", (e) => saveBot({ channels: { web: { enabled: e.target.checked } } }, e.target.checked ? t("Website widget on") : t("Website widget off")));
   $("#w-save").addEventListener("click", () => saveBot({ channels: { web: { allowedOrigins: $("#w-origins").value.split(",").map((x) => x.trim()).filter(Boolean) } } }));
   $("#copy-snippet").addEventListener("click", async () => { try { await navigator.clipboard.writeText(cur.widgetSnippet); toast(t("Copied")); } catch { toast(t("Select the snippet and copy it")); } });
+
+  // Slack (and any future channel that ships a manifest): copy-paste beats a checklist.
+  $$("[data-copy-manifest]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      const text = $(`[data-manifest="${btn.dataset.copyManifest}"]`)?.textContent ?? "";
+      try {
+        await navigator.clipboard.writeText(text);
+        toast(t("Manifest copied"));
+      } catch {
+        toast(t("Select the manifest and copy it"));
+      }
+    }),
+  );
 }
 
 // Models & abilities tab
