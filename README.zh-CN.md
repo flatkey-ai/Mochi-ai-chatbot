@@ -165,6 +165,18 @@ npm start
 - 只记住用户自己分享的事，敏感信息不会记录。
 - 任何人都可以对机器人说 **“忘记我”**（或 “forget me”）来删除自己的画像和消息。管理员也可以在控制台删除人物、聊天或整个机器人。
 
+## 常见问题
+
+**“Couldn't reach Telegram / QQ / Discord / Slack from the computer running Mochi”**（无法连接平台）表示 Mochi 根本没收到平台的回应，所以 Token 还没被校验，并不是 Token 错了。Node 不会使用系统代理：如果你需要借助代理或 VPN（Clash、Surge、V2Ray 等）才能打开这些平台，请在 `.env` 中填写代理的 HTTP 端口并重启：
+
+```bash
+HTTPS_PROXY=http://127.0.0.1:7890
+```
+
+之后 Mochi 的 HTTP 请求（Flatkey、Telegram、Token 校验、图片、知识库导入）都会走代理。Discord、Slack 和 QQ 还会保持一条长连接（WebSocket），它不走 `HTTPS_PROXY`，请打开代理软件的 TUN / 增强模式。
+
+**“… rejected this token”**（Token 被拒绝）才表示平台确认 Token 不对。请重新复制（Telegram 可在 @BotFather 中复制，或用 `/revoke` 生成新的）。
+
 <a id="deploy"></a>
 ## 部署
 

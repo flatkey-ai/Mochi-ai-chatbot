@@ -160,6 +160,18 @@ message ─▶ stored in the room's history ─▶ reply? (DM / @mention / name 
 - Only facts people share about themselves are kept, and sensitive traits are excluded.
 - Anyone can say **"forget me"** to a bot to erase their profile and messages. Admins can delete people, rooms or whole bots from the dashboard.
 
+## Troubleshooting
+
+**“Couldn't reach Telegram / QQ / Discord / Slack from the computer running Mochi”** means Mochi never got an answer from the platform, so your token wasn't checked yet. Node ignores your computer's proxy settings: if the platform opens in your browser only because of a proxy or VPN app (Clash, Surge, V2Ray…), add its HTTP port to `.env` and restart:
+
+```bash
+HTTPS_PROXY=http://127.0.0.1:7890
+```
+
+Mochi then sends its HTTP traffic through the proxy: Flatkey, Telegram, token checks, images and knowledge imports. Discord, Slack and QQ also keep a live connection (a WebSocket) that doesn't go through `HTTPS_PROXY`; for those, turn on your proxy app's TUN / enhanced mode.
+
+**“… rejected this token”** means the platform itself said the token is wrong. Copy it again (Telegram: from @BotFather, or `/revoke` to get a new one).
+
 ## Deploy
 
 **Docker**

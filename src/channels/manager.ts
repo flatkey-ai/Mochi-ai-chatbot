@@ -1,3 +1,4 @@
+import { UnexpectedResponseError, networkProblem, unreachableMessage } from "../core/net-errors.ts";
 import type { Brain } from "../core/brain.ts";
 import type { BotRegistry, BotSettings } from "../core/bots.ts";
 import type { ChannelCreds, ChannelPlatform, SecretsStore } from "../core/secrets.ts";
@@ -225,8 +226,12 @@ export class ChannelManager {
       }
       if (platform === "telegram") {
         const r = await this.getJson(`https://api.telegram.org/bot${creds.telegram!.token}/getMe`);
-        if (!r.ok) throw new Error("invalid");
-        return { account: `@${r.result.username}`, link: `https://t.me/${r.result.username}` };
+        if (r.ok === true && r.result?.username) return { account: `@${r.result.username}`, link: `https://t.me/${r.result.username}` };
+        // Only 401 (Unauthorized) and 404 (no such bot) mean the token itself is wrong.
+        if (r.error_code === 401 || r.error_code === 404) throw new Error("invalid");
+        if (r.error_code === 429) throw new KnownError("Telegram is rate-limiting this server. Wait a minute and try again.");
+        if (typeof r.ok !== "boolean") throw new UnexpectedResponseError(200);
+        throw new KnownError(`Telegram couldn't check this token: ${String(r.description ?? r.error_code ?? "unknown error").slice(0, 160)}`);
       }
       if (platform === "qq") {
         // Credentials come from the dashboard binding (or .env for the first bot) and go to
@@ -235,16 +240,9 @@ export class ChannelManager {
         try {
           token = (await qqAccessToken(creds.qq!.appId, creds.qq!.appSecret, this.http)).token;
         } catch (err) {
-          // A network/TLS failure is not a wrong AppSecret: say which one it is.
-          const msg = (err as Error).message ?? "";
-          const networkish =
-            err instanceof TypeError ||
-            /fetch failed|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|socket hang up|certificate|TLS|aborted|timeout/i.test(msg);
-          if (networkish)
-            throw new Error(
-              `Couldn't reach QQ from this server (${msg.slice(0, 120)}). That's a network, DNS, TLS or proxy problem here — not a wrong AppID.`,
-            );
-          throw new Error(`invalid: ${msg}`);
+          // A network/TLS failure is not a wrong AppSecret: rethrow it as-is so the catch below says which it is.
+          if (networkProblem(err) || err instanceof TypeError) throw err;
+          throw new Error(`invalid: ${(err as Error).message ?? ""}`);
         }
         const me = await this.getJson("https://api.sgroup.qq.com/users/@me", {
           headers: { authorization: `QQBot ${token}`, "x-union-appid": creds.qq!.appId },
@@ -269,7 +267,10 @@ export class ChannelManager {
       return { account: `@${auth.user} in ${auth.team}`, link: auth.url };
     } catch (err) {
       const m = (err as Error).message;
-      if (/Message Content|app-level|app token|bot token|Couldn't reach QQ/.test(m)) throw new Error(m);
+      if (err instanceof KnownError || /Message Content|app-level|app token|bot token/.test(m)) throw new Error(m);
+      // Couldn't reach the platform at all: never call that a wrong token.
+      const net = networkProblem(err) ?? (err instanceof TypeError ? m || "fetch failed" : null);
+      if (net) throw new Error(unreachableMessage(platform, net));
       if (platform === "qq") throw new Error("QQ rejected this AppID / AppSecret. Copy both again from q.qq.com → your bot → 开发管理 (Development) and retry.");
       throw new Error(`${cap(platform)} rejected this token. Copy it again from the ${platform === "telegram" ? "@BotFather chat" : "developer portal"} and retry.`);
     }
@@ -277,8 +278,15 @@ export class ChannelManager {
 
   private async getJson(url: string, init: RequestInit = {}): Promise<any> {
     const res = await this.http(url, { ...init, signal: AbortSignal.timeout(15_000) });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok && !("ok" in body)) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text().catch(() => "");
+    let body: any;
+    try {
+      body = text ? JSON.parse(text) : {};
+    } catch {
+      // HTML or other non-JSON: a proxy, firewall or captive portal answered, not the platform.
+      throw new UnexpectedResponseError(res.status);
+    }
+    if (!res.ok && !(body && typeof body === "object" && "ok" in body)) throw new Error(`HTTP ${res.status}`);
     return body;
   }
 
@@ -354,3 +362,6 @@ export function roomTarget(roomId: string): ChatTarget {
   const id = m ? m[2] : roomId;
   return { kind, id, userId: kind === "dm" ? id : undefined };
 }
+
+/** An error whose message is already the right thing to show the user. */
+class KnownError extends Error {}

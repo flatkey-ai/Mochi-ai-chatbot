@@ -29,7 +29,14 @@ const fakeFetch = (async (url: string | URL, init?: RequestInit) => {
       : new Response(JSON.stringify({ code: 100016, message: "invalid appid or secret" }), { status: 200 });
   }
   if (u === "https://api.sgroup.qq.com/users/@me") return ok({ id: "999", username: "MochiQQ" });
-  if (u.includes("api.telegram.org")) return ok(u.includes("getMe") ? { ok: false } : { ok: true });
+  // Network trouble between Mochi and Telegram (what a misconfigured proxy / firewall looks like):
+  if (u.includes("AAnetwork-down")) throw Object.assign(new TypeError("fetch failed"), { cause: Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }) });
+  if (u.includes("AAtimes-out")) throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  if (u.includes("AAproxy-page")) return new Response("<html><body>Access denied by proxy</body></html>", { status: 200, headers: { "content-type": "text/html" } });
+  if (u.includes("AArate-limited")) return new Response(JSON.stringify({ ok: false, error_code: 429, description: "Too Many Requests: retry after 30" }), { status: 429 });
+  // A real wrong token: Telegram answers 401 Unauthorized.
+  if (u.includes("api.telegram.org") && u.includes("getMe")) return new Response(JSON.stringify({ ok: false, error_code: 401, description: "Unauthorized" }), { status: 401 });
+  if (u.includes("api.telegram.org")) return ok({ ok: true });
   const auth = String((init?.headers as any)?.authorization ?? "");
   if (u.endsWith("/users/@me")) return auth.startsWith("Bot good-discord-token") ? ok({ id: "111", username: "Helpdesk", discriminator: "0" }) : new Response("{}", { status: 401 });
   if (u.endsWith("/applications/@me")) return init?.method === "PATCH" ? ok({}) : ok({ id: "222", flags: auth.includes("nointent") ? 0 : 1 << 19 });
@@ -161,6 +168,23 @@ test("channels: verify tokens before saving, start the bot, sync description", a
   const bad = await j(`/api/admin/bots/${id}/channels/telegram`, { method: "PUT", body: { token: "123456789:AAwrong-telegram-token-xyz" } });
   assert.equal(bad.status, 400);
   assert.match(bad.body.error, /Telegram rejected this token/);
+  // Couldn't reach Telegram ≠ wrong token.
+  for (const [token, detail] of [
+    ["123456789:AAnetwork-down-token-xyzabc", /ECONNRESET/],
+    ["123456789:AAtimes-out-token-xyzabcdef", /timed out/],
+    ["123456789:AAproxy-page-token-xyzabcde", /not the platform's API/],
+  ] as const) {
+    const r = await j(`/api/admin/bots/${id}/channels/telegram`, { method: "PUT", body: { token } });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /^Couldn't reach Telegram \(api\.telegram\.org\)/, token);
+    assert.match(r.body.error, detail, token);
+    assert.match(r.body.error, /not a wrong token/);
+    assert.match(r.body.error, /HTTPS_PROXY/);
+    assert.doesNotMatch(r.body.error, /rejected/);
+    assert.ok(!r.body.error.includes(token), "token never echoed back");
+  }
+  const limited = await j(`/api/admin/bots/${id}/channels/telegram`, { method: "PUT", body: { token: "123456789:AArate-limited-token-xyzab" } });
+  assert.match(limited.body.error, /rate-limiting/);
   const shape = await j(`/api/admin/bots/${id}/channels/telegram`, { method: "PUT", body: { token: "nope" } });
   assert.match(shape.body.error, /looks like 123456789/);
 

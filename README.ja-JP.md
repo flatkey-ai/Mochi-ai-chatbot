@@ -165,6 +165,18 @@ Flatkey が初めてなら、[こちらから登録](https://flatkey.ai/?utm_sou
 - 本人が自分について話したことだけを覚え、センシティブな属性は記録しません。
 - 誰でもボットに **「私を忘れて」**（または “forget me”）と言えば、自分のプロフィールとメッセージを消去できます。管理者はダッシュボードから人物、チャット、ボットごと削除できます。
 
+## トラブルシューティング
+
+**「Couldn't reach Telegram / QQ / Discord / Slack from the computer running Mochi」**（接続できない）は、Mochi がプラットフォームから応答を受け取れなかったという意味で、トークンはまだ確認されていません。Node はコンピューターのプロキシ設定を使いません。プロキシや VPN アプリ（Clash、Surge、V2Ray など）を通さないとアクセスできない場合は、その HTTP ポートを `.env` に追加して再起動してください：
+
+```bash
+HTTPS_PROXY=http://127.0.0.1:7890
+```
+
+これで Mochi の HTTP 通信（Flatkey、Telegram、トークン確認、画像、ナレッジの取り込み）がプロキシ経由になります。Discord・Slack・QQ は常時接続（WebSocket）も使い、こちらは `HTTPS_PROXY` を通らないため、プロキシアプリの TUN／拡張モードをオンにしてください。
+
+**「… rejected this token」**（トークンが拒否された）の場合だけ、プラットフォームがトークンを誤りと判断しています。コピーし直してください（Telegram なら @BotFather から、または `/revoke` で再発行）。
+
 <a id="deploy"></a>
 ## デプロイ
 

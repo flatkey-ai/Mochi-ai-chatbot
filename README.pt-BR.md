@@ -165,6 +165,18 @@ mensagem ─▶ salva no histórico ─▶ responder? (DM / @menção / nome / a
 - Só ficam guardados os fatos que as pessoas contam sobre si mesmas; dados sensíveis são excluídos.
 - Qualquer pessoa pode dizer **“me esquece”** (ou “forget me”) para o bot e apagar o próprio perfil e mensagens. Admins podem apagar pessoas, conversas ou bots inteiros pelo painel.
 
+## Solução de problemas
+
+**“Couldn't reach Telegram / QQ / Discord / Slack from the computer running Mochi”** (não foi possível conectar) quer dizer que o Mochi não recebeu resposta da plataforma, então o token nem foi verificado. O Node ignora o proxy do sistema: se a plataforma só abre no navegador por causa de um app de proxy ou VPN (Clash, Surge, V2Ray…), coloque a porta HTTP dele no `.env` e reinicie:
+
+```bash
+HTTPS_PROXY=http://127.0.0.1:7890
+```
+
+Assim o tráfego HTTP do Mochi passa pelo proxy: Flatkey, Telegram, verificação de tokens, imagens e importações. Discord, Slack e QQ também mantêm uma conexão contínua (WebSocket) que não usa o `HTTPS_PROXY`; para eles, ative o modo TUN / avançado do app de proxy.
+
+**“… rejected this token”** (token recusado) é quando a própria plataforma diz que o token está errado. Copie de novo (no Telegram, pelo @BotFather, ou use `/revoke` para gerar outro).
+
 <a id="deploy"></a>
 ## Deploy
 

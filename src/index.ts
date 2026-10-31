@@ -14,8 +14,13 @@ import { SearchAbility } from "./abilities/search.ts";
 import { ChannelManager } from "./channels/manager.ts";
 import { createServer } from "./server/app.ts";
 import { takeEnvSecrets } from "./core/env-secrets.ts";
+import { configureProxy, redactedProxy } from "./core/proxy.ts";
 
 const env = { ...process.env };
+
+// Node ignores the OS proxy settings. If HTTPS_PROXY / HTTP_PROXY is set, route outbound HTTP through it.
+const proxy = configureProxy(env);
+if (proxy) console.log(`[mochi] outbound HTTP via proxy ${redactedProxy(proxy)}`);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // Provider keys that came in through the environment are remembered for redaction and then

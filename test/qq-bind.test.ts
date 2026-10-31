@@ -72,7 +72,7 @@ const bind = async (appId: string, appSecret: string) => {
 test("a network failure is reported as a network failure, not as a wrong AppSecret", async () => {
   const r = await bind("900000001", "any-secret-value");
   assert.equal(r.status, 400);
-  assert.match(r.body.error, /Couldn't reach QQ from this server/);
+  assert.match(r.body.error, /^Couldn't reach QQ /);
   assert.match(r.body.error, /not a wrong AppID/);
   assert.doesNotMatch(r.body.error, /QQ rejected this AppID/);
 });

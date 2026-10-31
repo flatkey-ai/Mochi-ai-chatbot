@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Honest channel errors:** a token check that can't reach Telegram, Discord, Slack or QQ (DNS, TLS, timeout, firewall, proxy page) now says so, instead of "rejected this token". Only a real 401/404 from the platform counts as a wrong token.
+- **Proxy support:** set `HTTPS_PROXY` (e.g. Clash's `http://127.0.0.1:7890`) and Mochi's outbound HTTP, including Telegram polling, goes through it.
+
 ## 0.2.0
 
 - **Multiple bots**, each with its own persona, models, abilities, budget, channels, memory and knowledge base. Create from presets: group-chat companion, Q&A / support, study buddy or blank.

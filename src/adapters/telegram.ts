@@ -3,6 +3,7 @@ import type { Brain } from "../core/brain.ts";
 import { ChannelAdapter, type ChannelCapability, type ChatTarget, type HistoryMessage } from "../core/channel.ts";
 import type { ImageInput, IncomingMessage } from "../core/types.ts";
 import { fetchAsDataUrl, splitMessage } from "./util.ts";
+import { proxyAgent } from "../core/proxy.ts";
 
 /**
  * Telegram adapter (long polling). To let Mochi read all group messages (for memory),
@@ -35,7 +36,9 @@ export class TelegramAdapter extends ChannelAdapter {
   }
 
   async start(): Promise<void> {
-    const bot = new Bot(this.token);
+    // Node ignores the OS proxy; if HTTPS_PROXY is set, send Telegram traffic through it.
+    const agent = proxyAgent();
+    const bot = new Bot(this.token, agent ? { client: { baseFetchConfig: { agent, compress: true } } } : undefined);
     await bot.init();
     const me = bot.botInfo;
     bot.on(["message:text", "message:photo"], (ctx) =>
