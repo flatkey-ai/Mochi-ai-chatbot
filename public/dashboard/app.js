@@ -413,6 +413,8 @@ async function tabKnowledge(b) {
         <label class="switch"><input type="checkbox" id="k-on" ${k.enabled ? "checked" : ""} /><span></span></label></div>
       <div class="toggle-row"><div><b>🎯 ${t("Only answer from the knowledge base")}</b><p class="muted small">${t("For Q&A and support bots. If the answer isn't in your documents, the bot replies with the fallback message instead of guessing. Web search is turned off in this mode.")}</p></div>
         <label class="switch"><input type="checkbox" id="k-strict" ${k.strict ? "checked" : ""} /><span></span></label></div>
+      <div class="toggle-row"><div><b>🌍 ${t("Translate uploads into every language")}</b><p class="muted small">${t("Retrieval matches one language at a time, so a Chinese question can't find an English paragraph. With this on, each upload is also stored in English, 中文, Português and 日本語 — one model call per language per upload, tracked as “translate” usage.")}</p></div>
+        <label class="switch"><input type="checkbox" id="k-translate" ${k.translate ? "checked" : ""} /><span></span></label></div>
       <label>${t("Fallback message")}<input id="k-fallback" value="${esc(k.fallbackMessage)}" maxlength="500" /></label>
       <label class="inline">${t("Passages per answer")} <input type="number" id="k-max" min="1" max="10" value="${k.maxChunks}" style="width:80px" /></label>
       <div class="actions"><button class="btn primary" id="k-save">${t("Save")}</button></div>
@@ -453,7 +455,7 @@ async function tabKnowledge(b) {
       <div id="k-hits"></div>
     </div>`;
 
-  $("#k-save").addEventListener("click", () => saveBot({ knowledge: { enabled: $("#k-on").checked, strict: $("#k-strict").checked, fallbackMessage: $("#k-fallback").value, maxChunks: Number($("#k-max").value) } }));
+  $("#k-save").addEventListener("click", () => saveBot({ knowledge: { enabled: $("#k-on").checked, strict: $("#k-strict").checked, translate: $("#k-translate").checked, fallbackMessage: $("#k-fallback").value, maxChunks: Number($("#k-max").value) } }));
   $$("[data-kt]").forEach((btn) => btn.addEventListener("click", () => {
     $$("[data-kt]").forEach((x) => x.classList.toggle("active", x === btn));
     $$("[data-kp]").forEach((x) => x.classList.toggle("hidden", x.dataset.kp !== btn.dataset.kt));
@@ -541,6 +543,7 @@ const CHANNEL_HELP = () => ({
       t('Go to <a href="https://discord.com/developers/applications" target="_blank" rel="noopener">discord.com/developers/applications</a> → <b>New Application</b>.'),
       t("Open <b>Bot</b> → <b>Reset Token</b> → copy the token."),
       t("On the same page, turn on <b>Message Content Intent</b> (the bot needs it to read group chats)."),
+      t("<b>Installation → Guild Install → Default Install Settings</b>: the scopes <b>must include <code>bot</code></b> (keep <code>applications.commands</code>), and pick Send Messages / Read Message History / Embed Links. Without the <code>bot</code> scope the invite only grants slash commands — the bot never joins, and the member list stays empty."),
       t("Paste the token below and connect. You'll get an invite link to add the bot to your server."),
     ],
   },

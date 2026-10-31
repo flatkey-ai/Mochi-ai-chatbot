@@ -208,7 +208,8 @@ test("channels: verify tokens before saving, start the bot, sync description", a
   assert.match(badDiscord.body.error, /Discord rejected this token/);
   const d = await j(`/api/admin/bots/mochi/channels/discord`, { method: "PUT", body: { token: "good-discord-token-aaaaaaaaaaaaaaaa" } });
   assert.equal(d.status, 200);
-  assert.match(d.body.channel.identity.link, /client_id=222&scope=bot&permissions=68608/);
+  // bot + applications.commands: Discord only adds a bot user when the invite asks for "bot".
+  assert.match(d.body.channel.identity.link, /client_id=222&scope=bot%20applications\.commands&permissions=68608/);
 
   // QQ: AppID + AppSecret verified through the official token endpoint.
   const qqShape = await j(`/api/admin/bots/mochi/channels/qq`, { method: "PUT", body: { appId: "abc", appSecret: "x" } });

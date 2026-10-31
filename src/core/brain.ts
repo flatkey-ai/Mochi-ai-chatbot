@@ -383,8 +383,11 @@ export class Brain {
 
     if (kbDocs) {
       const hits = formatHits(kbHits, safeguard);
+      const titles = this.d.knowledge.titles(bot.id, 8);
       parts.push(
-        `## Knowledge base\nYour owner gave you ${kbDocs} document(s). ` +
+        `## Knowledge base\nYour owner gave you ${kbDocs} document(s).` +
+          (titles.length ? `\nDocuments: ${titles.map((x) => (safeguard ? neutralizeUntrusted(x, { max: 80 }) : x)).join(" · ")}` : "") +
+          "\n" +
           (kbHits.length
             ? `Passages that may answer the latest message:\n\n<passages>\n${hits}\n</passages>`
             : "No passage matched the latest message yet; call search_knowledge with other keywords if it's a question."),
@@ -409,6 +412,10 @@ export class Brain {
         );
     }
     if (bot.features.memory) rules.push("Use what you remember about people naturally; don't recite their profile back at them.");
+    // What the bot runs on is the owner's business, not a chat topic — unless they wrote it down.
+    rules.push(
+      "If someone asks which model, provider or vendor you run on and the knowledge base does not say, say your owner chooses the models and describe what you can do. Never name the underlying model, provider or version on your own.",
+    );
     rules.push("Write plain chat text. Light markdown is fine; no headings.");
     if (kbDocs) {
       rules.push(

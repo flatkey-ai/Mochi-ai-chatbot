@@ -133,18 +133,52 @@ export class KnowledgeStore {
       const extra = [...scored.values()].sort((a, b) => b.hits - a.hits).map((r) => ({ ...r, score: -r.hits }));
       rows = [...rows, ...extra];
     }
-    const seen = new Set<string>();
-    const hits: KnowledgeHit[] = [];
-    for (const r of rows) {
-      const key = String(r.body).slice(0, 80);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const doc = this.getDoc(botId, Number(r.doc_id));
-      if (!doc) continue;
-      hits.push({ docId: doc.id, title: doc.title, sourceRef: doc.sourceRef, text: r.body, score: Number(r.score) });
-      if (hits.length >= limit) break;
+    const byKey = new Map<string, KnowledgeHit>();
+    const addCandidate = (docId: number, body: string, score: number) => {
+      const key = String(body).slice(0, 80);
+      const doc = this.getDoc(botId, docId);
+      if (!doc) return;
+      const existing = byKey.get(key);
+      // Keep the *best* score for a passage: the same chunk can arrive from the FTS pass and
+      // from the title pass, and dropping the stronger signal would rank the wrong doc first.
+      if (existing) existing.score = Math.min(existing.score, score);
+      else byKey.set(key, { docId: doc.id, title: doc.title, sourceRef: doc.sourceRef, text: body, score });
+    };
+    for (const r of rows) addCandidate(Number(r.doc_id), String(r.body), Number(r.score));
+
+    // FTS only indexes bodies, so a document that is *about* the question — titled
+    // "Shipping policy" while its body says "orders leave the warehouse" — would never be a
+    // candidate. Pull title matches in explicitly; the boost below then ranks them first.
+    const wanted = [...trigramTerms, ...shortCjk].map((t) => t.toLowerCase());
+    const titleDocs = new Set<number>();
+    for (const t of wanted) {
+      if (t.length < 2 || titleDocs.size >= 5) continue;
+      const found = this.db
+        .prepare(`SELECT id FROM kb_docs WHERE bot_id = ? AND lower(title) LIKE ? LIMIT 5`)
+        .all(botId, `%${t}%`) as any[];
+      for (const r of found) titleDocs.add(Number(r.id));
     }
-    return hits;
+    for (const docId of titleDocs) {
+      const chunks = this.db
+        .prepare(`SELECT body FROM kb_chunks WHERE bot_id = ? AND doc_id = ? ORDER BY rowid LIMIT 2`)
+        .all(botId, docId) as any[];
+      for (const c of chunks) addCandidate(docId, String(c.body), -3);
+    }
+
+    // bm25 is lower-is-better, so subtract for every query term the title contains.
+    const boosted = [...byKey.values()].map((h) => {
+      const title = h.title.toLowerCase();
+      const titleHits = wanted.filter((t) => t.length >= 2 && title.includes(t)).length;
+      return { ...h, score: h.score - titleHits * 2 };
+    });
+    return boosted.sort((a, b) => a.score - b.score).slice(0, limit);
+  }
+
+  /** Titles of the bot's documents, so the model knows what it can look things up in. */
+  titles(botId: string, limit = 12): string[] {
+    return (this.db.prepare(`SELECT title FROM kb_docs WHERE bot_id = ? ORDER BY created_at DESC LIMIT ?`).all(botId, limit) as any[]).map(
+      (r) => String(r.title),
+    );
   }
 }
 
