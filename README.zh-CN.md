@@ -24,6 +24,16 @@
 
 Mochi 是一个开源的聊天机器人平台，只需一把 [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_intro_zh) API 密钥，几分钟就能部署。想建多少个机器人都可以：每个都有自己的人设和简介、知识库、渠道和预算，全部在控制台里点一点就能配置，不用写代码。
 
+<img src="docs/mochi-avatar-512.png" align="right" width="210" alt="Mochi：粉色头发、挥手打招呼的动漫少女" />
+
+### 认识 Mochi 🍡
+
+你的第一个机器人开箱即用：**Mochi**，群聊里最活泼的常驻小伙伴。她记得每个人、会上网查资料、看得懂你的表情包，还会用你的语言回复。可以直接用她，也可以给她换上你自己的性格，或者再建任意多个机器人。
+
+想让你的机器人也用她的形象？下载 [她的头像](docs/mochi-avatar.png)，在 Discord（Developer Portal → Bot）、Telegram（@BotFather → `/setuserpic`）或 QQ（q.qq.com）上传即可。
+
+<br clear="right" />
+
 ![我的机器人](docs/bots.png)
 
 ## 为什么 Mochi 跑在 Flatkey 上

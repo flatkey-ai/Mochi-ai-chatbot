@@ -24,6 +24,16 @@ Powered by [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&
 
 Mochi is an open-source chatbot platform you can deploy in minutes with one [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_intro) API key. Create as many bots as you like. Give each one a persona and description, a knowledge base, its own channels and its own budget, all from a dashboard and without touching code.
 
+<img src="docs/mochi-avatar-512.png" align="right" width="210" alt="Mochi, a pink-haired anime girl waving hello" />
+
+### Meet Mochi 🍡
+
+Your first bot comes ready to go: **Mochi**, the cheerful regular of your group chat. She remembers everyone, looks things up, reads your memes and answers in your language. Keep her as she is, give her your own personality, or create as many other bots as you like.
+
+Want her on your bot? Download [her avatar](docs/mochi-avatar.png) and upload it in Discord (Developer Portal → Bot), Telegram (@BotFather → `/setuserpic`) or QQ (q.qq.com).
+
+<br clear="right" />
+
 ![Your bots](docs/bots.png)
 
 ## Why Mochi runs on Flatkey

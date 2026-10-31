@@ -24,6 +24,16 @@ Powered by [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&
 
 Mochi は、[Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_intro_ja) の API キー 1 つで数分でデプロイできる、オープンソースのチャットボット基盤です。ボットはいくつでも作成でき、それぞれにペルソナと説明、ナレッジベース、チャネル、予算を設定できます。すべてダッシュボードから、コードを書かずに操作できます。
 
+<img src="docs/mochi-avatar-512.png" align="right" width="210" alt="Mochi：手を振るピンク髪のアニメ風の女の子" />
+
+### Mochi を紹介します 🍡
+
+最初のボットはすぐに使えます：グループチャットの明るい常連さん、**Mochi**。みんなのことを覚えていて、調べものをして、ミームも読めて、相手の言語で返事をします。そのまま使っても、自分好みの性格にしても、ほかのボットをいくつ作っても OK。
+
+あなたのボットにも彼女の姿を？ [アバター画像](docs/mochi-avatar.png) をダウンロードして、Discord（Developer Portal → Bot）、Telegram（@BotFather → `/setuserpic`）、QQ（q.qq.com）でアップロードしてください。
+
+<br clear="right" />
+
 ![あなたのボット](docs/bots.png)
 
 ## Mochi が Flatkey で動く理由
