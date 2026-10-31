@@ -1,5 +1,6 @@
 import type { Brain } from "../core/brain.ts";
-import type { ImageInput, PlatformAdapter } from "../core/types.ts";
+import { ChannelAdapter, type ChannelCapability, type ChatTarget } from "../core/channel.ts";
+import type { ImageInput, IncomingMessage } from "../core/types.ts";
 import { fetchAsDataUrl, splitMessage } from "./util.ts";
 
 /**
@@ -43,8 +44,13 @@ export async function qqAccessToken(appId: string, appSecret: string, http: type
   return { token: String(body.access_token), expiresAt: Date.now() + Number(body.expires_in ?? 7200) * 1000 };
 }
 
-export class QQAdapter implements PlatformAdapter {
+export class QQAdapter extends ChannelAdapter {
   readonly platform = "qq" as const;
+  /**
+   * QQ is the most limited channel: passive replies only (msg_id, 5 minute window), no
+   * history API. Active sends exist but are quota-limited by the platform.
+   */
+  readonly capabilities: ReadonlySet<ChannelCapability> = new Set<ChannelCapability>(["reply", "send", "media"]);
   private ws: WebSocket | null = null;
   private token = "";
   private tokenExpiresAt = 0;
@@ -59,14 +65,17 @@ export class QQAdapter implements PlatformAdapter {
   private botName = "";
   private readonly tokenUrl: string;
   private readonly apiBase: string;
+  /** Who to answer in each room. The inbound message id rides on the message itself (msg.ref). */
+  private readonly peerByRoom = new Map<string, { kind: "group" | "dm"; peer: string }>();
 
   constructor(
-    readonly botId: string,
+    botId: string,
     private readonly appId: string,
     private readonly appSecret: string,
     private readonly brain: Brain,
     endpoints: QQEndpoints = {},
   ) {
+    super(botId);
     this.tokenUrl = endpoints.tokenUrl ?? TOKEN_URL;
     this.apiBase = endpoints.apiBase ?? API_BASE;
   }
@@ -177,6 +186,9 @@ export class QQAdapter implements PlatformAdapter {
           settle();
           return;
         }
+        // One line per dispatch: without this, an event QQ sends but we don't handle is
+        // invisible and the bot just looks silent.
+        console.log(`[qq:${this.botId}] event ${p.t}${p.d?.id ? ` msg=${p.d.id}` : ""}${p.d?.group_openid ? ` group=${String(p.d.group_openid).slice(-6)}` : ""}`);
         void this.onEvent(p.t, p.d).catch((e) => console.error(`[qq:${this.botId}]`, e?.message ?? e));
         return;
       case 7: // server asks us to reconnect
@@ -197,6 +209,7 @@ export class QQAdapter implements PlatformAdapter {
     if (this.heartbeat) clearInterval(this.heartbeat);
     this.heartbeat = null;
     if (this.stopped) return;
+    console.log(`[qq:${this.botId}] gateway closed (code ${code}), reconnects=${this.reconnects}`);
     // 4014: an intent isn't enabled for this bot (e.g. guild features). Retry with groups + private chats only.
     if (code === 4014 && this.intents !== INTENT_GROUP_AND_C2C) {
       this.intents = INTENT_GROUP_AND_C2C;
@@ -230,79 +243,269 @@ export class QQAdapter implements PlatformAdapter {
 
   private async onEvent(type: string, d: any): Promise<void> {
     if (!d || d.author?.bot) return;
-    let roomId: string, userId: string, userName: string, isDirect: boolean, mentionsBot: boolean, roomName: string | undefined;
-    let reply: (content: string, seq: number) => Promise<unknown>;
 
-    switch (type) {
-      case "GROUP_AT_MESSAGE_CREATE":
-      case "GROUP_MESSAGE_CREATE":
-        roomId = `group:${d.group_openid}`;
-        userId = d.author?.member_openid ?? d.author?.id;
-        userName = d.author?.username || shortName(userId);
-        isDirect = false;
-        mentionsBot = type === "GROUP_AT_MESSAGE_CREATE";
-        roomName = "QQ group";
-        reply = (content, seq) => this.api("POST", `/v2/groups/${d.group_openid}/messages`, { content, msg_type: 0, msg_id: d.id, msg_seq: seq });
-        break;
-      case "C2C_MESSAGE_CREATE":
-        userId = d.author?.user_openid ?? d.author?.id;
-        roomId = `c2c:${userId}`;
-        userName = d.author?.username || shortName(userId);
-        isDirect = true;
-        mentionsBot = true;
-        reply = (content, seq) => this.api("POST", `/v2/users/${userId}/messages`, { content, msg_type: 0, msg_id: d.id, msg_seq: seq });
-        break;
-      case "AT_MESSAGE_CREATE":
-        roomId = `channel:${d.channel_id}`;
-        userId = d.author?.id;
-        userName = d.member?.nick || d.author?.username || shortName(userId);
-        isDirect = false;
-        mentionsBot = true;
-        roomName = "QQ guild channel";
-        reply = (content) => this.api("POST", `/channels/${d.channel_id}/messages`, { content, msg_id: d.id });
-        break;
-      case "DIRECT_MESSAGE_CREATE":
-        roomId = `dm:${d.guild_id}`;
-        userId = d.author?.id;
-        userName = d.author?.username || shortName(userId);
-        isDirect = true;
-        mentionsBot = true;
-        reply = (content) => this.api("POST", `/dms/${d.guild_id}/messages`, { content, msg_id: d.id });
-        break;
-      default:
-        return;
+    const ctx = this.resolveContext(type, d);
+    if (!ctx) {
+      // Event types we do not act on (GROUP_ADD_ROBOT, ...) or new ones QQ added. Log them
+      // so "the bot ignored me" is diagnosable instead of silent.
+      console.log(`[qq:${this.botId}] unhandled event ${type}`);
+      return;
     }
-    if (!userId) return;
+    const { roomId, userId, userName, isDirect, mentionsBot, roomName, kind, peer, inboundId } = ctx;
+    if (!userId) {
+      console.log(`[qq:${this.botId}] dropped ${type}: no user id in payload (keys=${Object.keys(d ?? {}).join(",")})`);
+      return;
+    }
 
     const images: ImageInput[] = [];
-    for (const a of Array.isArray(d.attachments) ? d.attachments : []) {
-      if (!String(a?.content_type ?? "").startsWith("image/") || !a.url) continue;
-      const url = String(a.url).startsWith("//") ? `https:${a.url}` : /^https?:/.test(a.url) ? a.url : `https://${a.url}`;
-      const img = await fetchAsDataUrl(url);
-      if (img) images.push(img);
+    const notes: string[] = [];
+    const attachments: any[] = Array.isArray(d.attachments) ? d.attachments : [];
+    let logged = 0;
+    for (const a of attachments) {
+      const attachmentKind = classifyAttachment(a);
+      const url = attachmentUrl(a);
+      if (attachmentKind === "image" && url) {
+        // QQ's rich-media CDN answers 400 to clients that don't look like a browser.
+        const img = await fetchAsDataUrl(
+          url,
+          {
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+            accept: "image/*,*/*;q=0.8",
+          },
+          { expectMime: String(a?.content_type ?? ""), via: `qq:${this.botId}` },
+        );
+        if (img) images.push(img);
+        else notes.push("[sent an image, but it could not be downloaded]");
+        if (logged++ < 3) console.log(`[qq:${this.botId}] media: image via ${safeHost(url)} -> ${img ? "ok" : "download failed"}`);
+      } else if (attachmentKind === "image") {
+        notes.push("[sent an image, but no URL came with it]");
+      } else if (attachmentKind === "video") {
+        // Vision models take images; say a video arrived instead of pretending nothing did.
+        notes.push(`[sent a video${fileHint(a)}]`);
+        if (logged++ < 3) console.log(`[qq:${this.botId}] media: video ${a?.content_type ?? "?"} (not downloaded)`);
+      } else if (attachmentKind === "audio") {
+        notes.push("[sent a voice message]");
+        if (logged++ < 3) console.log(`[qq:${this.botId}] media: audio ${a?.content_type ?? "?"} (not downloaded)`);
+      } else if (attachmentKind === "file") {
+        notes.push(`[sent a file${fileHint(a)}]`);
+        if (logged++ < 3) console.log(`[qq:${this.botId}] media: file ${a?.content_type ?? "?"} (not downloaded)`);
+      } else if (logged++ < 3) {
+        console.log(`[qq:${this.botId}] media: skipped attachment ${JSON.stringify(a).slice(0, 160)}`);
+      }
     }
 
-    const answer = await this.brain.handle({
+    // If media came in but nothing usable came out, print the raw shape once: that is the
+    // fastest way to see whether QQ changed a field name or the CDN refused the download.
+    if (attachments.length && !images.length) {
+      const sample = JSON.stringify(attachments[0] ?? {});
+      console.log(
+        `[qq:${this.botId}] media: ${attachments.length} attachment(s), no image usable — keys=[${Object.keys(attachments[0] ?? {}).join(",")}] ` +
+          `sample=${sample.replace(/rkey=[^&"]+/gi, "rkey=<redacted>").slice(0, 260)}`,
+      );
+    }
+
+    const text = [stripQQMarkup(String(d.content ?? "")), ...notes].filter(Boolean).join("\n").trim();
+    const incoming: IncomingMessage = {
       botId: this.botId,
       platform: "qq",
       roomId,
       roomName,
       userId,
       userName,
-      text: String(d.content ?? "").replace(/<@!?\d+>/g, "").trim(),
+      text,
       images,
       isDirect,
       mentionsBot,
       timestamp: d.timestamp ? Date.parse(d.timestamp) || undefined : undefined,
-    });
-    if (!answer) return;
-    const chunks = splitMessage(qqSafeText(answer.text), 1800);
-    for (const [i, chunk] of chunks.entries()) await reply(chunk, i + 1);
+      ref: inboundId,
+    };
+    // Where to answer this room; the msg_id travels on the message so two overlapping
+    // events cannot steal each other's reply.
+    this.peerByRoom.set(roomId, { kind, peer });
+
+    const answer = await this.brain.handle(incoming);
+    if (answer) await this.replyTo(incoming, answer.text);
+  }
+
+  /**
+   * Normalize a QQ event into the shared shape. Returns undefined for events we don't act on.
+   * (The old switch used an untyped `reply` closure and DIRECT_MESSAGE_CREATE fell through
+   * into the default branch, so guild DMs were never answered.)
+   */
+  private resolveContext(
+    type: string,
+    d: any,
+  ):
+    | {
+        roomId: string;
+        userId: string;
+        userName: string;
+        isDirect: boolean;
+        mentionsBot: boolean;
+        roomName?: string;
+        kind: "group" | "dm";
+        peer: string;
+        inboundId: string;
+      }
+    | undefined {
+    switch (type) {
+      case "GROUP_AT_MESSAGE_CREATE":
+      case "GROUP_MESSAGE_CREATE": {
+        const userId = d.author?.member_openid ?? d.author?.id;
+        return {
+          roomId: `group:${d.group_openid}`,
+          userId,
+          userName: d.author?.username || shortName(userId),
+          isDirect: false,
+          mentionsBot: type === "GROUP_AT_MESSAGE_CREATE",
+          roomName: "QQ group",
+          kind: "group",
+          peer: d.group_openid,
+          inboundId: d.id,
+        };
+      }
+      case "C2C_MESSAGE_CREATE": {
+        const userId = d.author?.user_openid ?? d.author?.id;
+        return {
+          roomId: `c2c:${userId}`,
+          userId,
+          userName: d.author?.username || shortName(userId),
+          isDirect: true,
+          mentionsBot: true,
+          kind: "dm",
+          peer: userId,
+          inboundId: d.id,
+        };
+      }
+      case "AT_MESSAGE_CREATE":
+        return {
+          roomId: `channel:${d.channel_id}`,
+          userId: d.author?.id,
+          userName: d.member?.nick || d.author?.username || shortName(d.author?.id),
+          isDirect: false,
+          mentionsBot: true,
+          roomName: "QQ guild channel",
+          kind: "group",
+          peer: d.channel_id,
+          inboundId: d.id,
+        };
+      case "DIRECT_MESSAGE_CREATE":
+        return {
+          roomId: `dm:${d.guild_id}`,
+          userId: d.author?.id,
+          userName: d.author?.username || shortName(d.author?.id),
+          isDirect: true,
+          mentionsBot: true,
+          kind: "dm",
+          peer: d.guild_id,
+          inboundId: d.id,
+        };
+      default:
+        return undefined;
+    }
+  }
+
+  /** Passive reply: quotes the inbound message, which is the only thing QQ always allows. */
+  async replyTo(msg: IncomingMessage, text: string): Promise<void> {
+    this.require("reply");
+    const ctx = this.peerByRoom.get(msg.roomId);
+    const chunks = splitMessage(qqSafeText(text), 1800);
+    if (!ctx || !msg.ref) {
+      await this.sendTo({ kind: msg.isDirect ? "dm" : "group", id: msg.roomId.replace(/^(group|c2c|channel|dm):/, ""), userId: msg.userId }, text);
+      return;
+    }
+    for (const [i, chunk] of chunks.entries()) {
+      const base = ctx.kind === "group" ? `/v2/groups/${ctx.peer}/messages` : `/v2/users/${ctx.peer}/messages`;
+      await this.api("POST", base, { content: chunk, msg_type: 0, msg_id: msg.ref, msg_seq: i + 1 });
+    }
+  }
+
+  /** Active send (no inbound message). QQ meters these per group/user, so it can be refused. */
+  async sendTo(target: ChatTarget, text: string): Promise<void> {
+    this.require("send");
+    const peer = target.kind === "dm" ? (target.userId ?? target.id) : target.id;
+    const path = target.kind === "dm" ? `/v2/users/${peer}/messages` : `/v2/groups/${peer}/messages`;
+    for (const chunk of splitMessage(qqSafeText(text), 1800)) {
+      await this.api("POST", path, { content: chunk, msg_type: 0 });
+    }
   }
 }
 
-/** Group and private-chat events only carry anonymous openids, not nicknames. */
-function shortName(openid: string | undefined): string {
+/**
+ * QQ sends media as attachments, but the metadata is inconsistent in practice: emoji,
+ * stickers and older clients often leave content_type empty or send octet-stream while the
+ * filename (or the rich-media URL) says what it is. Classifying here — instead of requiring
+ * a tidy `image/...` prefix — is the difference between the bot seeing a picture and the
+ * bot replying "I got nothing".
+ */
+export type QQAttachmentKind = "image" | "video" | "audio" | "file" | "skip";
+
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|heic|avif)$/i;
+const VIDEO_EXT = /\.(mp4|mov|m4v|webm|avi|mkv)$/i;
+const AUDIO_EXT = /\.(silk|amr|mp3|m4a|wav|ogg)$/i;
+
+export function classifyAttachment(a: any): QQAttachmentKind {
+  if (!a || typeof a !== "object") return "skip";
+  const ct = String(a.content_type ?? a.contentType ?? "").toLowerCase().trim();
+  const name = String(a.filename ?? a.file_name ?? a.name ?? "");
+  const url = String(a.url ?? "");
+
+  if (ct.startsWith("image/")) return "image";
+  if (ct.startsWith("video/")) return "video";
+  if (ct.startsWith("audio/")) return "audio";
+  if (IMAGE_EXT.test(name)) return "image";
+  if (VIDEO_EXT.test(name)) return "video";
+  if (AUDIO_EXT.test(name)) return "audio";
+  // Rich-media URLs carry a type hint when the metadata doesn't.
+  if (/[?&](?:file_type=image|type=image)\b/i.test(url) || /\/image\//i.test(url)) return "image";
+  if (/[?&](?:file_type=video|type=video)\b/i.test(url)) return "video";
+  if (ct && ct !== "application/octet-stream") return "file";
+  // No type, no filename, no hint: look at the extension in the URL path.
+  if (IMAGE_EXT.test(url)) return "image";
+  if (VIDEO_EXT.test(url)) return "video";
+  return url || name ? "file" : "skip";
+}
+
+/** Absolute URL for an attachment, tolerating protocol-relative and bare-host forms. */
+export function attachmentUrl(a: any): string {
+  const raw = String(a?.url ?? a?.file_url ?? "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (/^https?:/i.test(raw)) return raw;
+  return `https://${raw.replace(/^\/+/, "")}`;
+}
+
+/** Hostname only, so media-log lines never carry rkey tokens. */
+function safeHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "?";
+  }
+}
+
+function fileHint(a: any): string {
+  const name = String(a?.filename ?? a?.file_name ?? "");
+  const type = String(a?.content_type ?? "");
+  const bits = [type, name].filter(Boolean);
+  return bits.length ? ` (${bits.join(", ").slice(0, 60)})` : "";
+}
+
+/**
+ * QQ encoder markup: mentions (`<@!123>`) and legacy emoji (`<faceType=6,faceId="1",ext="…"/>`).
+ * The emoji form carries a base64 JSON blob that means nothing to a model, so it becomes a
+ * readable token instead of noise in the prompt.
+ */
+export function stripQQMarkup(text: string): string {
+  return text
+    .replace(/<@!?\d+>/g, " ")
+    .replace(/<faceType=\d+,\s*faceId="\d+"(?:,\s*ext="[^"]*")?\s*\/?>/gi, "[emoji]")
+    .replace(/<emoji:\d+>/gi, "[emoji]")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+/** Group and private-chat events only carry anonymous openids, not nicknames. */function shortName(openid: string | undefined): string {
   return openid ? `QQ user ${openid.slice(-4)}` : "QQ user";
 }
 

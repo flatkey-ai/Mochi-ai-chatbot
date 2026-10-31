@@ -527,13 +527,18 @@ const CHANNEL_HELP = () => ({
     ],
   },
   slack: {
-    fields: [["botToken", t("Bot token (xoxb-…)"), t("OAuth & Permissions → Bot User OAuth Token")], ["appToken", t("App-level token (xapp-…)"), t("Basic Information → App-Level Tokens (scope connections:write)")]],
+    fields: [
+      ["botToken", t("Bot token (xoxb-…)"), t("OAuth & Permissions → OAuth Tokens → Bot User OAuth Token")],
+      ["appToken", t("App-level token (xapp-…)"), t("Basic Information → App-Level Tokens → Generate Token and Scopes → connections:write")],
+    ],
     steps: [
-      t('Create an app at <a href="https://api.slack.com/apps" target="_blank" rel="noopener">api.slack.com/apps</a> → <b>From scratch</b>.'),
-      t("<b>Socket Mode</b> → enable, and create an app-level token with <code>connections:write</code>."),
-      t("<b>OAuth & Permissions</b> → bot scopes: <code>app_mentions:read channels:history channels:read groups:history im:history chat:write users:read files:read</code>."),
-      t("<b>Event Subscriptions</b> → enable → bot events: <code>message.channels message.groups message.im</code>."),
-      t("<b>Install to Workspace</b>, copy the bot token, then paste both tokens below. Invite the bot with <code>/invite @YourBot</code>."),
+      t('Create an app at <a href="https://api.slack.com/apps" target="_blank" rel="noopener">api.slack.com/apps</a> → <b>Create New App</b>. Pick <b>Blank app</b> (the old "From scratch"), or use <b>From a manifest</b> with <code>docs/slack-app-manifest.json</code> from this repo to get the scopes and events below filled in.'),
+      t("<b>Settings → Socket Mode</b> → turn it on, then <b>Basic Information → App-Level Tokens → Generate Token and Scopes</b>: name it <code>socket</code>, <b>Add Scope</b> → <code>connections:write</code> → <b>Generate</b> → copy the <code>xapp-…</code> token."),
+      t("<b>OAuth & Permissions → Scopes → Bot Token Scopes</b>: <code>app_mentions:read channels:history channels:read groups:history im:history chat:write users:read files:read</code>."),
+      t("<b>Event Subscriptions → Subscribe to bot events</b>: <code>app_mention message.channels message.groups message.im</code>."),
+      t("<b>OAuth & Permissions → OAuth Tokens</b> → <b>Install to Workspace</b> → Allow → copy the <b>Bot User OAuth Token</b> (<code>xoxb-…</code>), then paste both tokens below."),
+      t('<b>Features → App Home → Show Tabs → Messages Tab</b>: tick <b>Allow users to send Slash commands and messages from the messages tab</b>. Without it Slack answers DMs with "Sending messages to this app has been turned off." and the bot never sees them.'),
+      t('Invite it with <code>/invite @YourBot</code> — a bot sees nothing in a channel it has not joined. Its name and icon live under <b>App Home</b>.'),
     ],
   },
   qq: {

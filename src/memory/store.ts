@@ -154,6 +154,41 @@ export class MemoryStore {
     return rows.reverse().map(rowToMessage);
   }
 
+  /**
+   * Look further back than the window that fits in the prompt: "what were we talking about
+   * before?" needs the older lines of *this* room, not a wider dump of every room.
+   */
+  searchMessages(botId: string, platform: Platform, roomId: string, query: string, limit = 12): StoredMessage[] {
+    const terms = String(query ?? "")
+      .toLowerCase()
+      .split(/[\s,，。!?！？、;；:：]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 2)
+      .slice(0, 6);
+    let rows: any[];
+    if (terms.length) {
+      const where = terms.map(() => "lower(text) LIKE ?").join(" OR ");
+      rows = this.db
+        .prepare(
+          `SELECT * FROM messages WHERE bot_id = ? AND platform = ? AND room_id = ? AND (${where}) ORDER BY id DESC LIMIT ?`,
+        )
+        .all(botId, platform, roomId, ...terms.map((t) => `%${t}%`), limit) as any[];
+    } else {
+      rows = this.db
+        .prepare(`SELECT * FROM messages WHERE bot_id = ? AND platform = ? AND room_id = ? ORDER BY id DESC LIMIT ?`)
+        .all(botId, platform, roomId, limit) as any[];
+    }
+    return rows.reverse().map(rowToMessage);
+  }
+
+  /** How many messages this room has stored (to tell the model what it is missing). */
+  countMessages(botId: string, platform: Platform, roomId: string): number {
+    const r = this.db
+      .prepare(`SELECT COUNT(*) AS n FROM messages WHERE bot_id = ? AND platform = ? AND room_id = ?`)
+      .get(botId, platform, roomId) as any;
+    return Number(r?.n ?? 0);
+  }
+
   // ── people ──────────────────────────────────────────────────────
 
   touchPerson(botId: string, platform: Platform, userId: string, displayName: string, ts: number): void {

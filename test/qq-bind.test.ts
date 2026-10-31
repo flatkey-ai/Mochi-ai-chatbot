@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { makeStack } from "./helpers.ts";
+import { makeStack, FakeAdapter } from "./helpers.ts";
 import { ChannelManager } from "../src/channels/manager.ts";
 import { createServer } from "../src/server/app.ts";
 import type { PlatformAdapter } from "../src/core/types.ts";
@@ -43,13 +43,7 @@ before(async () => {
   S = await makeStack();
   const channels = new ChannelManager(S.bots, S.secrets, S.brain, {
     http: fakeFetch,
-    factory: (botId, p): PlatformAdapter => ({
-      platform: p,
-      botId,
-      start: async () => {},
-      stop: async () => {},
-      status: () => ({ running: true, detail: "fake" }),
-    }),
+        factory: (botId, p): PlatformAdapter => new FakeAdapter(botId, p),
   });
   const app = createServer({
     brain: S.brain, bots: S.bots, channels, secrets: S.secrets, store: S.store, knowledge: S.knowledge, flatkey: S.flatkey,

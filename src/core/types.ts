@@ -21,6 +21,11 @@ export interface IncomingMessage {
   /** The bot was @mentioned or the message replies to the bot. */
   mentionsBot: boolean;
   timestamp?: number;
+  /**
+   * Platform id of this exact message, so a channel can quote/reply to it later.
+   * (A per-room "last message" is not enough: two events can be in flight at once.)
+   */
+  ref?: string;
 }
 
 export interface BotReply {
@@ -31,10 +36,5 @@ export interface BotReply {
   usedKnowledge?: { docId: number; title: string }[];
 }
 
-export interface PlatformAdapter {
-  readonly platform: Platform;
-  readonly botId: string;
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  status(): { running: boolean; detail?: string };
-}
+/** The channel contract lives in channel.ts; this alias keeps older imports working. */
+export type { ChannelAdapter, PlatformAdapter, ChannelCapability, ChatTarget, HistoryMessage } from "./channel.ts";

@@ -1,11 +1,9 @@
 import type { Brain } from "../core/brain.ts";
 import type { BotRegistry, BotSettings } from "../core/bots.ts";
 import type { ChannelCreds, ChannelPlatform, SecretsStore } from "../core/secrets.ts";
-import type { PlatformAdapter } from "../core/types.ts";
-import { DiscordAdapter } from "../adapters/discord.ts";
-import { TelegramAdapter } from "../adapters/telegram.ts";
-import { SlackAdapter } from "../adapters/slack.ts";
-import { QQAdapter, qqAccessToken } from "../adapters/qq.ts";
+import type { ChatTarget, HistoryMessage, PlatformAdapter } from "../core/channel.ts";
+import { qqAccessToken } from "../adapters/qq.ts";
+import { createChannelAdapter, type AdapterCredentials } from "./factory.ts";
 
 export const CHANNEL_PLATFORMS: ChannelPlatform[] = ["discord", "telegram", "slack", "qq"];
 
@@ -284,11 +282,27 @@ export class ChannelManager {
     return body;
   }
 
+  /** One place builds adapters; see channels/factory.ts (add a platform = add a builder). */
   private makeAdapter(botId: string, p: ChannelPlatform, c: ChannelCreds): PlatformAdapter {
-    if (p === "discord") return new DiscordAdapter(botId, c.discord!.token, this.brain);
-    if (p === "telegram") return new TelegramAdapter(botId, c.telegram!.token, this.brain);
-    if (p === "qq") return new QQAdapter(botId, c.qq!.appId, c.qq!.appSecret, this.brain);
-    return new SlackAdapter(botId, c.slack!.botToken, c.slack!.appToken, this.brain);
+    const creds = toAdapterCredentials(p, c);
+    if (!creds) throw new Error(`no credentials for ${p}`);
+    return createChannelAdapter(botId, creds, this.brain);
+  }
+
+  /**
+   * Read a room's older messages from the platform itself. Returns [] when that channel has
+   * no history API or is not connected — callers then fall back to the local database.
+   */
+  async fetchHistory(botId: string, platform: ChannelPlatform, roomId: string, limit = 50): Promise<HistoryMessage[]> {
+    const adapter = this.running.get(`${botId}:${platform}`);
+    if (!adapter || !adapter.supports("history")) return [];
+    const target = roomTarget(roomId);
+    try {
+      return await adapter.fetchHistory(target, limit);
+    } catch (err) {
+      console.log(`[${platform}:${botId}] history fetch failed: ${(err as Error).message}`);
+      return [];
+    }
   }
 }
 
@@ -323,3 +337,20 @@ const json = (body: unknown): RequestInit => ({
   signal: AbortSignal.timeout(15_000),
 });
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+
+/** Map stored credentials to the factory's discriminated union. */
+function toAdapterCredentials(p: ChannelPlatform, c: ChannelCreds): AdapterCredentials | undefined {
+  if (p === "discord" && c.discord) return { platform: "discord", token: c.discord.token };
+  if (p === "telegram" && c.telegram) return { platform: "telegram", token: c.telegram.token };
+  if (p === "slack" && c.slack) return { platform: "slack", botToken: c.slack.botToken, appToken: c.slack.appToken };
+  if (p === "qq" && c.qq) return { platform: "qq", appId: c.qq.appId, appSecret: c.qq.appSecret };
+  return undefined;
+}
+
+/** Room ids are namespaced ("group:123", "c2c:abc"); platform APIs want the bare id. */
+export function roomTarget(roomId: string): ChatTarget {
+  const m = /^(group|c2c|channel|dm):(.*)$/.exec(roomId);
+  const kind: ChatTarget["kind"] = m && (m[1] === "c2c" || m[1] === "dm") ? "dm" : "group";
+  const id = m ? m[2] : roomId;
+  return { kind, id, userId: kind === "dm" ? id : undefined };
+}

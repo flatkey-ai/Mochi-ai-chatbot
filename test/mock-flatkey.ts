@@ -58,20 +58,38 @@ export function startMockFlatkey(port = 0): Promise<{ url: string; calls: MockCa
       }
 
       // tool result came back → final answer using it
+      if (last?.role === "tool" && last.tool_call_id === "call_hist") {
+        const lines = String(last.content).replace(/<\/?history>/g, "").trim();
+        return send({ choices: [{ message: { role: "assistant", content: lines ? `From history: ${lines.split("\n")[0]}` : "Nothing older matched." } }], usage });
+      }
       if (last?.role === "tool" && last.tool_call_id === "call_kb") {
         const m = String(last.content).match(/\[1\] \(from "([^"]+)"\)\n([^\n]+)/);
         const fb = sys.match(/reply with this message[^:]*: "([^"]+)"/);
         return send({ choices: [{ message: { role: "assistant", content: m ? `From ${m[1]}: ${m[2]}` : (fb?.[1] ?? "not found") } }], usage });
       }
       if (last?.role === "tool") {
-        const r = JSON.parse(last.content);
+        // Only web_search returns JSON; other tools return text, so never assume parseable.
+        let r: any = {};
+        try {
+          r = JSON.parse(String(last.content));
+        } catch {
+          r = { answer: String(last.content).slice(0, 200) };
+        }
         return send({ choices: [{ message: { role: "assistant", content: `Mochi: according to my search, ${r.answer ?? "no idea"}` } }], usage });
       }
 
       const text = typeof last.content === "string" ? last.content : (last.content ?? []).map((p: any) => p.text ?? "").join(" ");
       const hasImage = Array.isArray(last.content) && last.content.some((p: any) => p.type === "image_url");
-      if (/weather|news|latest/i.test(text) && body.tools?.length) {
+      if (/weather|news|latest/i.test(text) && body.tools?.some((t: any) => t.function?.name === "web_search")) {
         return send({ choices: [{ message: { role: "assistant", content: null, tool_calls: [{ id: "call_1", type: "function", function: { name: "web_search", arguments: JSON.stringify({ query: "weather today" }) } }] } }], usage });
+      }
+      // "what were we talking about?" → the model reaches for older messages.
+      if (
+        /what were we|earlier|history|之前|刚才/i.test(text) &&
+        body.tools?.some((t: any) => t.function?.name === "search_history") &&
+        last.role !== "tool"
+      ) {
+        return send({ choices: [{ message: { role: "assistant", content: null, tool_calls: [{ id: "call_hist", type: "function", function: { name: "search_history", arguments: JSON.stringify({ query: "" }) } }] } }], usage });
       }
       // Knowledge base: answer from the first injected passage, or the strict fallback.
       const passage = sys.match(/\[1\] \(from "([^"]+)"\)\n([\s\S]*?)(?=\n\n\[2\]|\n\n## |$)/);
