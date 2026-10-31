@@ -1,5 +1,6 @@
 import "dotenv/config";
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Brain } from "./core/brain.ts";
@@ -67,6 +68,24 @@ const channels = new ChannelManager(bots, secrets, brain, {
     qqAppSecret: env.QQ_APP_SECRET,
   },
 });
+// Fail fast if the port is taken: a second instance used to grab the Telegram polling lock
+// before it ever tried to listen, which killed the running one with a 409 and then served
+// nothing itself. Checking the port first makes that scenario impossible.
+const bootPort = Number(env.PORT || 3000);
+await new Promise<void>((resolve, reject) => {
+  const probe = net.createServer();
+  probe.once("error", reject);
+  probe.once("listening", () => probe.close(() => resolve()));
+  probe.listen(bootPort);
+}).catch((err: NodeJS.ErrnoException) => {
+  console.error(
+    err.code === "EADDRINUSE"
+      ? `[mochi] port ${bootPort} is already in use — another Mochi is running. Use scripts/stop-mochi.ps1, or set PORT to something else in .env.`
+      : `[mochi] could not listen on port ${bootPort}: ${err.message}`,
+  );
+  process.exit(1);
+});
+
 await channels.startAll();
 
 // The channel manager needs the brain, so the history provider is wired right after both

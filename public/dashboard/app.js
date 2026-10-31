@@ -186,6 +186,7 @@ const PLATFORM = {
   telegram: { icon: "✈️", name: "Telegram" },
   slack: { icon: "💼", name: "Slack" },
   qq: { icon: "🐧", name: "QQ" },
+  line: { icon: "💬", name: "LINE" },
   web: { icon: "🌐", name: "Website" },
 };
 const pname = (p) => (p === "web" ? t("Website") : PLATFORM[p].name);
@@ -570,6 +571,19 @@ const CHANNEL_HELP = () => ({
       t('Invite it with <code>/invite @YourBot</code> — a bot sees nothing in a channel it has not joined. Its name and icon live under <b>App Home</b>.'),
     ],
   },
+  line: {
+    fields: [
+      ["channelAccessToken", t("Channel access token"), t("Messaging API → Channel access token (long-lived)")],
+      ["channelSecret", t("Channel secret"), t("Basic settings → Channel secret")],
+    ],
+    steps: [
+      t('Open the <a href="https://developers.line.biz/console/" target="_blank" rel="noopener">LINE Developers console</a> → your provider → <b>Messaging API</b> channel (or create one; a LINE Official Account comes with it).'),
+      t("<b>Messaging API → Channel access token (long-lived)</b> → Issue, then copy it. The <b>Channel secret</b> is on the <b>Basic settings</b> tab."),
+      t("Set the webhook URL to <code>{url}</code> (public HTTPS — use a tunnel if this server has no public address), click <b>Verify</b>, then turn <b>Use webhook</b> on.", { url: `${ov.publicUrl}/webhook/line/${b.id}` }),
+      t("Add the Official Account as a friend in the LINE app (私聊), or invite it into a group so it can answer there."),
+      t("Paste both values below and connect. Replies use LINE's one-shot reply token; anything later is sent with the push API."),
+    ],
+  },
   qq: {
     fields: [["appId", "AppID", t("q.qq.com → your bot → 开发管理 (Development)")], ["appSecret", "AppSecret", t("Same page. Generate it if you haven't yet.")]],
     steps: [
@@ -592,12 +606,19 @@ function tabChannels(b) {
       : c.bound ? `<span class="dot"></span>${esc(c.detail)}` : `<span class="dot bad"></span>${t("Not connected")}`;
     const linkLabel = { discord: t("Invite to a server ↗"), telegram: t("Open in Telegram ↗"), slack: t("Open workspace ↗"), qq: t("Open QQ Bot console ↗") }[c.platform];
     const link = c.identity?.link ? `<a class="btn ghost small" href="${esc(c.identity.link)}" target="_blank" rel="noopener">${linkLabel}</a>` : "";
+    // The invite URL is the thing people actually need to copy, so show it as text too.
+    const installLink = c.identity?.link
+      ? `<div class="muted small" style="margin-top:8px">${t("Install link")}${c.platform === "discord" ? ` · ${t("the app's Installation → Guild Install scopes must include bot, otherwise this only adds slash commands")}` : ""}</div>
+         <pre class="snippet" data-install="${c.platform}">${esc(c.identity.link)}</pre>
+         <div class="actions left"><button type="button" class="btn ghost small" data-copy-install="${c.platform}">${t("Copy install link")}</button></div>`
+      : "";
     return `
       <div class="card channel" data-platform="${c.platform}">
         <div class="row"><b class="ch-title">${P.icon} ${P.name}</b>
           ${c.bound ? `<label class="switch" title="${esc(t("Pause / resume"))}"><input type="checkbox" data-toggle="${c.platform}" ${c.enabled ? "checked" : ""} /><span></span></label>` : ""}</div>
         <div class="muted small">${status} ${c.source === "env" ? "· " + t("from .env") : ""}</div>
         ${link}
+        ${installLink}
         <details ${c.bound ? "" : "open"}><summary>${c.bound ? t("Replace token") : t("How to connect")}</summary>
           <ol class="howto">${h.steps.map((s) => `<li>${s}</li>`).join("")}</ol>
           ${h.manifest ? `<p class="muted small">${t("Paste this manifest (From a manifest → paste → Next → Create):")}</p>
@@ -655,6 +676,19 @@ function tabChannels(b) {
   $("#w-on").addEventListener("change", (e) => saveBot({ channels: { web: { enabled: e.target.checked } } }, e.target.checked ? t("Website widget on") : t("Website widget off")));
   $("#w-save").addEventListener("click", () => saveBot({ channels: { web: { allowedOrigins: $("#w-origins").value.split(",").map((x) => x.trim()).filter(Boolean) } } }));
   $("#copy-snippet").addEventListener("click", async () => { try { await navigator.clipboard.writeText(cur.widgetSnippet); toast(t("Copied")); } catch { toast(t("Select the snippet and copy it")); } });
+
+// Install / invite links: make them copyable, they are what people paste into a browser.
+  $$("[data-copy-install]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      const text = $(`[data-install="${btn.dataset.copyInstall}"]`)?.textContent ?? "";
+      try {
+        await navigator.clipboard.writeText(text);
+        toast(t("Install link copied"));
+      } catch {
+        toast(t("Select the link and copy it"));
+      }
+    }),
+  );
 
   // Slack (and any future channel that ships a manifest): copy-paste beats a checklist.
   $$("[data-copy-manifest]").forEach((btn) =>

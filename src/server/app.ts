@@ -55,6 +55,22 @@ export function createServer(d: ServerDeps) {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", "loopback");
+  // LINE (and any future webhook channel) needs the raw body to check X-Line-Signature, so
+  // it has to be mounted before the JSON parser rewrites the payload.
+  app.post("/webhook/line/:botId", express.raw({ type: "*/*", limit: "1mb" }), async (req, res) => {
+    const botId = String(req.params.botId);
+    const raw = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : "";
+    try {
+      const handled = await d.channels.handleWebhook(botId, "line", raw, req.headers["x-line-signature"] as string | undefined);
+      if (!handled) return res.status(404).json({ ok: false, error: "no line channel running for this bot" });
+      res.json({ ok: true });
+    } catch (err) {
+      // 400 makes LINE retry; a bad signature is never worth retrying, so say 401.
+      const badSig = /signature/i.test((err as Error).message);
+      res.status(badSig ? 401 : 500).json({ ok: false, error: (err as Error).message });
+    }
+  });
+
   app.use(express.json({ limit: "25mb" }));
 
   app.get("/", (_req, res) => res.redirect("/dashboard/"));
