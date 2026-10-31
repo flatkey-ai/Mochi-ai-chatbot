@@ -120,6 +120,7 @@ export const BASE_BOT: Omit<BotSettings, "id" | "createdAt"> = {
     telegram: { enabled: true },
     slack: { enabled: true },
     qq: { enabled: true },
+      line: { enabled: true },
     web: { enabled: true, allowedOrigins: ["*"] },
   },
 };

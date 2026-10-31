@@ -6,11 +6,15 @@ export interface ChannelCreds {
   telegram?: { token: string };
   slack?: { botToken: string; appToken: string };
   qq?: { appId: string; appSecret: string };
+  /** LINE Messaging API: channel access token + channel secret (for webhook signatures). */
+  line?: { channelAccessToken: string; channelSecret: string };
 }
 export type ChannelPlatform = keyof ChannelCreds;
 
 interface SecretsFile {
   flatkeyApiKey?: string;
+  /** Account name + invite link per bot/platform, so the dashboard can show them after a restart. */
+  identities?: Record<string, Partial<Record<ChannelPlatform, { account: string; link?: string }>>>;
   /** Channel tokens per bot id. */
   channels?: Record<string, ChannelCreds>;
 }
@@ -56,11 +60,31 @@ export class SecretsStore {
     this.save();
   }
 
+/** Cached account identity (name + invite link) for a channel. */
+  identity(botId: string, platform: ChannelPlatform): { account: string; link?: string } | undefined {
+    return this.data.identities?.[botId]?.[platform];
+  }
+
+  setIdentity(botId: string, platform: ChannelPlatform, identity: { account: string; link?: string } | undefined): void {
+    this.data.identities ??= {};
+    const cur = (this.data.identities[botId] ??= {});
+    if (identity) cur[platform] = identity;
+    else delete cur[platform];
+    if (!Object.keys(cur).length) delete this.data.identities[botId];
+    this.save();
+  }
+
   deleteBot(botId: string): void {
+    let dirty = false;
     if (this.data.channels?.[botId]) {
       delete this.data.channels[botId];
-      this.save();
+      dirty = true;
     }
+    if (this.data.identities?.[botId]) {
+      delete this.data.identities[botId];
+      dirty = true;
+    }
+    if (dirty) this.save();
   }
 
   /** Which bot (if any) already uses this token, so one token can't be bound twice. */
@@ -70,6 +94,7 @@ export class SecretsStore {
       if (c.telegram?.token === token) return { botId, platform: "telegram" };
       if (c.slack?.botToken === token || c.slack?.appToken === token) return { botId, platform: "slack" };
       if (c.qq?.appId === token) return { botId, platform: "qq" };
+      if (c.line?.channelAccessToken === token) return { botId, platform: "line" };
     }
     return undefined;
   }

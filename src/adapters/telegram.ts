@@ -48,9 +48,22 @@ export class TelegramAdapter extends ChannelAdapter {
     this.bot = bot;
     this.detail = `@${me.username}`;
     this.running = true;
-    void bot.start({ drop_pending_updates: true, onStart: () => console.log(`[telegram] polling as @${me.username}`) }).finally(() => {
-      this.running = false;
-    });
+    // A 409 here means another instance is polling this same bot token. That must not take the
+    // whole process down with it — it used to: the rejection was unhandled and QQ, Discord and
+    // Slack died along with Telegram. Report it and keep the other channels alive.
+    void bot
+      .start({ drop_pending_updates: true, onStart: () => console.log(`[telegram] polling as @${me.username}`) })
+      .then(() => {
+        this.running = false;
+      })
+      .catch((err: Error) => {
+        this.running = false;
+        const conflict = /409|Conflict|terminated by other getUpdates/i.test(err.message);
+        this.detail = conflict
+          ? "polling conflict: another instance is using this Telegram bot token"
+          : `polling stopped: ${err.message.slice(0, 120)}`;
+        console.error(`[telegram:${this.botId}] ${this.detail}`);
+      });
   }
 
   private async onMessage(ctx: Context, tgBotId: number, username: string): Promise<void> {

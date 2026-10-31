@@ -6,6 +6,7 @@ import { DiscordAdapter } from "../adapters/discord.ts";
 import { TelegramAdapter } from "../adapters/telegram.ts";
 import { SlackAdapter } from "../adapters/slack.ts";
 import { QQAdapter } from "../adapters/qq.ts";
+import { LineAdapter } from "../adapters/line.ts";
 
 /** Platforms that have an adapter at all ("web" is served by the HTTP server). */
 export type ChatPlatform = Exclude<Platform, "web">;
@@ -15,7 +16,8 @@ export type AdapterCredentials =
   | { platform: "discord"; token: string }
   | { platform: "telegram"; token: string }
   | { platform: "slack"; botToken: string; appToken: string }
-  | { platform: "qq"; appId: string; appSecret: string };
+  | { platform: "qq"; appId: string; appSecret: string }
+  | { platform: "line"; channelAccessToken: string; channelSecret: string };
 
 type Builder = {
   [K in ChatPlatform]: (botId: string, creds: Extract<AdapterCredentials, { platform: K }>, brain: Brain) => ChannelAdapter;
@@ -30,6 +32,7 @@ const BUILDERS: Builder = {
   telegram: (botId, c, brain) => new TelegramAdapter(botId, c.token, brain),
   slack: (botId, c, brain) => new SlackAdapter(botId, c.botToken, c.appToken, brain),
   qq: (botId, c, brain) => new QQAdapter(botId, c.appId, c.appSecret, brain),
+  line: (botId, c, brain) => new LineAdapter(botId, c.channelAccessToken, c.channelSecret, brain),
 };
 
 export function isChatPlatform(p: string): p is ChatPlatform {
@@ -56,4 +59,6 @@ export const CAPABILITY_MATRIX: Record<ChatPlatform, string[]> = {
   telegram: ["reply", "send", "media", "typing"],
   slack: ["reply", "send", "history", "media", "typing", "threads"],
   qq: ["reply", "send", "media"],
+  // LINE replies with a one-shot replyToken and needs an HTTPS webhook; no history API.
+  line: ["reply", "send", "media"],
 };
