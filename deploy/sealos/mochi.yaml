@@ -1,0 +1,125 @@
+# Mochi on Sealos (Kubernetes manifests).
+#
+# Two ways to use this file:
+#
+#   1. Sealos Desktop → 应用管理 (App Launchpad), fill the form instead of applying YAML:
+#        image:      ghcr.io/OWNER/mochi:latest
+#        port:       3000  → 外网访问 on
+#        env:        ADMIN_TOKEN / PUBLIC_URL / DATA_DIR=/app/data / PORT=3000
+#        storage:    PVC 1Gi mounted at /app/data
+#
+#   2. kubectl apply -f deploy/sealos/mochi.yaml   (edit the marked values first)
+#
+# Values marked CHANGE-ME must be replaced. Single replica on purpose: SQLite (WAL) does not
+# support concurrent writers, and a Telegram bot token may only be polled by one instance.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mochi-data
+  namespace: default
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mochi-env
+  namespace: default
+type: Opaque
+stringData:
+  # CHANGE-ME: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ADMIN_TOKEN: "replace-with-32-byte-hex"
+  # CHANGE-ME: the public https URL Sealos gives the app; widgets, install links and the
+  # LINE webhook hint are all built from it.
+  PUBLIC_URL: "https://mochi.example.com"
+  DATA_DIR: "/app/data"
+  PORT: "3000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mochi
+  namespace: default
+  labels: { app: mochi }
+spec:
+  replicas: 1
+  strategy:
+    # Recreate, not RollingUpdate: two instances would fight over the channel connections
+    # (Telegram polling, QQ/Slack gateways) and over the SQLite file.
+    type: Recreate
+  selector:
+    matchLabels: { app: mochi }
+  template:
+    metadata:
+      labels: { app: mochi }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: mochi
+          # CHANGE-ME: your image, e.g. ghcr.io/OWNER/mochi:latest
+          image: ghcr.io/OWNER/mochi:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 3000 }
+          envFrom:
+            - secretRef: { name: mochi-env }
+          volumeMounts:
+            - { name: data, mountPath: /app/data }
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: mochi-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mochi
+  namespace: default
+spec:
+  selector: { app: mochi }
+  ports:
+    - { name: http, port: 3000, targetPort: http }
+---
+# Sealos issues certificates through cert-manager. Adjust the ingress class / issuer to match
+# your cluster if it differs (Sealos Desktop default: nginx + letsencrypt-prod).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mochi
+  namespace: default
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "26m"
+    # LINE and the other platforms call in over HTTPS; force it.
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["mochi.example.com"]          # CHANGE-ME
+      secretName: mochi-tls
+  rules:
+    - host: mochi.example.com                # CHANGE-ME
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mochi
+                port: { name: http }

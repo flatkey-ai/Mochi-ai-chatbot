@@ -280,3 +280,13 @@ select::-ms-expand { display: none; }
 .sidebar-foot .lang-select { flex: 1; padding: 6px 30px 6px 10px; font-size: 13px; background-position: right 10px center; }
 .login-card .lang-select { align-self: center; padding: 6px 34px 6px 12px; font-size: 13px; border-color: transparent; background-color: transparent; color: var(--muted); }
 #logout { white-space: nowrap; }
+/* Callout used by channels that need a publicly reachable server (LINE). */
+.callout {
+  border: 1px solid #f0c9a8;
+  background: #fff7ec;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 10px 0 14px;
+}
+.callout b { display: block; margin-bottom: 4px; }
+.callout .actions { margin-top: 8px; }
