@@ -219,9 +219,18 @@ export class ChannelManager {
         if (app && !(flags & (1 << 18)) && !(flags & (1 << 19)))
           throw new Error('Turn on "Message Content Intent" under Bot → Privileged Gateway Intents in the Discord developer portal, then try again.');
         const appId = app?.id ?? me.id;
+        // An invite only adds a bot user when the app's Guild Install scopes include "bot".
+        // Without it Discord authorises slash commands and silently leaves the bot out of the
+        // server — which looks exactly like "it won't join".
+        const installScopes: string[] = app?.install_params?.scopes ?? [];
+        if (app && installScopes.length && !installScopes.includes("bot"))
+          console.warn(
+            `[discord] app ${appId} install scopes are [${installScopes.join(", ")}] — no "bot" scope, ` +
+              `so invites only grant slash commands. Developer portal → Installation → Guild Install → Default Install Settings → add "bot".`,
+          );
         return {
           account: me.discriminator && me.discriminator !== "0" ? `${me.username}#${me.discriminator}` : me.username,
-          link: `https://discord.com/oauth2/authorize?client_id=${appId}&scope=bot&permissions=68608`,
+          link: `https://discord.com/oauth2/authorize?client_id=${appId}&scope=bot%20applications.commands&permissions=68608`,
         };
       }
       if (platform === "telegram") {

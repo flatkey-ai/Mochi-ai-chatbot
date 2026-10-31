@@ -13,6 +13,7 @@ import type { FlatkeyClient, FlatkeyModel } from "../flatkey/client.ts";
 import type { MemoryStore } from "../memory/store.ts";
 import type { KnowledgeStore } from "../knowledge/store.ts";
 import { extractFileText, fetchUrlText, SUPPORTED_FILE_TYPES } from "../knowledge/ingest.ts";
+import { detectDocLang, missingLanguages, translateDocument } from "../knowledge/translate.ts";
 import { WHY_FLATKEY, flatkeyUrl } from "../flatkey/why.ts";
 
 export interface ServerDeps {
@@ -344,7 +345,38 @@ export function createServer(d: ServerDeps) {
     }),
   );
 
-  // Knowledge base
+// Knowledge base
+  /**
+   * Upload-time translation. Retrieval is per-script, so a document written in one language
+   * answers nobody writing in another; translating once at upload makes every conversation
+   * find a passage in its own language. Opt-in per bot (knowledge.translate) because it costs
+   * a model call per language per upload.
+   */
+  const translateUpload = async (
+    bot: BotSettings,
+    title: string,
+    text: string,
+    source: "text" | "file" | "url",
+    sourceRef: string,
+  ) => {
+    if (!bot.knowledge.translate || !d.flatkey.hasKey()) return [] as ReturnType<typeof d.knowledge.addDocument>[];
+    const model = bot.knowledge.translateModel || bot.models.memory;
+    const from = detectDocLang(text);
+    const added: ReturnType<typeof d.knowledge.addDocument>[] = [];
+    for (const lang of missingLanguages(from)) {
+      try {
+        const out = await translateDocument(d.flatkey, model, text, lang);
+        d.store.recordUsage(bot.id, "translate", model, out.promptTokens, out.completionTokens);
+        added.push(
+          d.knowledge.addDocument(bot.id, `${title} [${lang}]`, source, sourceRef ? `${sourceRef}#${lang}` : `auto:${lang}`, out.text),
+        );
+      } catch (err) {
+        console.log(`[knowledge:${bot.id}] translation to ${lang} failed: ${(err as Error).message}`);
+      }
+    }
+    return added;
+  };
+
   admin.get("/bots/:id/knowledge", (req, res) => {
     const bot = botOr404(req, res);
     if (bot) res.json({ docs: d.knowledge.listDocs(bot.id) });
@@ -358,12 +390,13 @@ export function createServer(d: ServerDeps) {
   });
   admin.post(
     "/bots/:id/knowledge/text",
-    wrap((req, res) => {
+    wrap(async (req, res) => {
       const bot = botOr404(req, res);
       if (!bot) return;
       const text = String(req.body?.text ?? "");
       const title = String(req.body?.title ?? "").trim() || text.trim().split("\n")[0].slice(0, 60) || "Note";
-      res.json({ doc: d.knowledge.addDocument(bot.id, title, "text", "", text) });
+      const doc = d.knowledge.addDocument(bot.id, title, "text", "", text);
+      res.json({ doc, translations: await translateUpload(bot, title, text, "text", "") });
     }),
   );
   admin.post(
@@ -375,7 +408,9 @@ export function createServer(d: ServerDeps) {
       const b64 = String(req.body?.data ?? "").replace(/^data:[^,]*,/, "");
       if (!filename || !b64) throw new Error("filename and data are required");
       const text = await extractFileText(filename, Buffer.from(b64, "base64"));
-      res.json({ doc: d.knowledge.addDocument(bot.id, filename.replace(/\.[a-z0-9]+$/i, ""), "file", filename, text) });
+const title = filename.replace(/\.[a-z0-9]+$/i, "");
+      const doc = d.knowledge.addDocument(bot.id, title, "file", filename, text);
+      res.json({ doc, translations: await translateUpload(bot, title, text, "file", filename) });
     }),
   );
   admin.post(
@@ -384,7 +419,8 @@ export function createServer(d: ServerDeps) {
       const bot = botOr404(req, res);
       if (!bot) return;
       const page = await fetchUrlText(String(req.body?.url ?? ""));
-      res.json({ doc: d.knowledge.addDocument(bot.id, page.title, "url", page.url, page.text) });
+const doc = d.knowledge.addDocument(bot.id, page.title, "url", page.url, page.text);
+      res.json({ doc, translations: await translateUpload(bot, page.title, page.text, "url", page.url) });
     }),
   );
   admin.delete("/bots/:id/knowledge/:docId", (req, res) => {

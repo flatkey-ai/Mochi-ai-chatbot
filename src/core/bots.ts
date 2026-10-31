@@ -43,6 +43,10 @@ export interface BotSettings {
     strict: boolean;
     maxChunks: number;
     fallbackMessage: string;
+    /** Translate each upload into every console language, so retrieval works per language. */
+    translate: boolean;
+    /** Model used for that translation; empty = the bot's memory model (cheap). */
+    translateModel: string;
   };
   models: { chat: string; vision: string; memory: string; search: string };
   features: { memory: boolean; search: boolean; vision: boolean };
@@ -100,6 +104,8 @@ export const BASE_BOT: Omit<BotSettings, "id" | "createdAt"> = {
     strict: false,
     maxChunks: 4,
     fallbackMessage: "I couldn't find that in my notes. Could you rephrase, or ask a human on the team?",
+    translate: false,
+    translateModel: "",
   },
   // Defaults are from the Flatkey catalog (flatkey.ai/models). Chat + memory: DeepSeek V4.1 Flash.
   // Vision needs a model that accepts images; search needs one with the native web_search tool.
@@ -305,7 +311,9 @@ export function sanitize(b: BotSettings): BotSettings {
   b.knowledge.enabled = Boolean(b.knowledge.enabled);
   b.knowledge.strict = Boolean(b.knowledge.strict);
   b.knowledge.maxChunks = clamp(b.knowledge.maxChunks, 1, 10, 4);
-  b.knowledge.fallbackMessage = str(b.knowledge.fallbackMessage, 500) || d.knowledge.fallbackMessage;
+b.knowledge.fallbackMessage = str(b.knowledge.fallbackMessage, 500) || d.knowledge.fallbackMessage;
+  b.knowledge.translate = Boolean(b.knowledge.translate);
+  b.knowledge.translateModel = str(b.knowledge.translateModel, 120).trim();
 
   for (const k of Object.keys(d.models) as (keyof BotSettings["models"])[]) {
     b.models[k] = str(b.models[k], 120).trim() || d.models[k];
