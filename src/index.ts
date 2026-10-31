@@ -64,6 +64,13 @@ const channels = new ChannelManager(bots, secrets, brain, {
 });
 await channels.startAll();
 
+// The channel manager needs the brain, so the history provider is wired right after both
+// exist: search_history can then read older messages straight from the platform.
+brain.setHistoryProvider({
+  fetchHistory: (botId, platform, roomId, limit) =>
+    platform === "web" ? Promise.resolve([]) : channels.fetchHistory(botId, platform, roomId, limit),
+});
+
 const port = Number(env.PORT || 3000);
 const publicUrl = (env.PUBLIC_URL || `http://localhost:${port}`).replace(/\/+$/, "");
 const app = createServer({

@@ -66,7 +66,10 @@ test("turning search off removes the tool (cost control)", async () => {
   S.bots.update("mochi", { features: { search: false } });
   const r = await S.brain.handle(msg({ text: "latest news?", mentionsBot: true }));
   assert.equal(r?.usedSearch, false);
-  assert.equal(lastChat().body.tools, undefined);
+  // Other tools (search_history) may still be offered; what matters for cost control is that
+  // the model has no way to spend a search-model call when the feature is off.
+  const tools = (lastChat().body.tools ?? []) as any[];
+  assert.ok(!tools.some((t) => t.function?.name === "web_search"), "web_search must not be offered");
   S.bots.update("mochi", { features: { search: true } });
 });
 

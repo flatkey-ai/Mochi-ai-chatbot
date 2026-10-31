@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { makeStack } from "./helpers.ts";
+import { makeStack, FakeAdapter } from "./helpers.ts";
 import { ChannelManager } from "../src/channels/manager.ts";
 import { createServer } from "../src/server/app.ts";
 import type { PlatformAdapter } from "../src/core/types.ts";
@@ -40,12 +40,21 @@ before(async () => {
   S = await makeStack({ key: undefined }); // start with NO Flatkey key
   const channels = new ChannelManager(S.bots, S.secrets, S.brain, {
     http: fakeFetch,
-    factory: (botId, p): PlatformAdapter => ({
-      platform: p, botId,
-      start: async () => void started.push(`${botId}:${p}`),
-      stop: async () => void started.splice(started.indexOf(`${botId}:${p}`), 1),
-      status: () => ({ running: started.includes(`${botId}:${p}`), detail: "fake" }),
-    }),
+    factory: (botId, p): PlatformAdapter => {
+      const adapter = new FakeAdapter(botId, p);
+      const key = `${botId}:${p}`;
+      const start = adapter.start.bind(adapter);
+      const stop = adapter.stop.bind(adapter);
+      adapter.start = async () => {
+        started.push(key);
+        await start();
+      };
+      adapter.stop = async () => {
+        started.splice(started.indexOf(key), 1);
+        await stop();
+      };
+      return adapter;
+    },
   });
   const app = createServer({
     brain: S.brain, bots: S.bots, channels, secrets: S.secrets, store: S.store, knowledge: S.knowledge, flatkey: S.flatkey,
