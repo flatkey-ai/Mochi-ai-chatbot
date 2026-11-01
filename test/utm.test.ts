@@ -6,6 +6,7 @@ import { flatkeyUrl } from "../src/flatkey/why.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const FILES = ["README.md", "README.zh-CN.md", "README.ja-JP.md", "README.pt-BR.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "SECURITY.md", ".github/ISSUE_TEMPLATE/config.yml", ".env.example", "public/widget/widget.js", "public/dashboard/index.html", "public/dashboard/app.js", "src/flatkey/why.ts", "src/server/app.ts"];
+const MEDIUMS_SITE = ["mochi_site"];
 const MEDIUMS = ["local_deploy", "dashboard", "github", "web_widget"];
 
 test("flatkeyUrl builds the full UTM set", () => {
@@ -37,4 +38,23 @@ test("every user-facing Flatkey link in the repo carries the UTM scheme", () => 
     }
   }
   assert.ok(count >= 6, `expected many tracked links, found ${count}`);
+});
+
+test("every Flatkey link on the website is tracked, with the language in utm_content", async () => {
+  const { execFileSync } = await import("node:child_process");
+  execFileSync(process.execPath, [path.join(root, "site/build.mjs")], { env: { ...process.env, SITE_URL: "" } });
+  const re = /https:\/\/(?:console\.)?flatkey\.ai\/[^\s"'`)<>]*/g;
+  for (const lang of ["en", "zh", "ja", "pt"]) {
+    const f = path.join(root, "site/dist", lang === "en" ? "" : lang, "index.html");
+    const html = fs.readFileSync(f, "utf8").replace(/&amp;/g, "&");
+    const links = [...html.matchAll(re)].map((m) => new URL(m[0]));
+    assert.ok(links.length >= 7, `${lang}: expected tracked links, found ${links.length}`);
+    for (const u of links) {
+      assert.equal(u.searchParams.get("utm_source"), "mochi_bot", `${lang}: ${u}`);
+      assert.ok(MEDIUMS_SITE.includes(u.searchParams.get("utm_medium") ?? ""), `${lang}: ${u}`);
+      assert.equal(u.searchParams.get("utm_campaign"), "mochi", `${lang}: ${u}`);
+      const content = u.searchParams.get("utm_content") ?? "";
+      assert.ok(lang === "en" ? !/_(zh|ja|pt)$/.test(content) : content.endsWith(`_${lang}`), `${lang}: ${u}`);
+    }
+  }
 });

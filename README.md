@@ -14,7 +14,7 @@ Companions that remember people, Q&A bots that answer from your docs, and a dash
 
 **English** · [简体中文](README.zh-CN.md) · [日本語](README.ja-JP.md) · [Português](README.pt-BR.md)
 
-[Quick start](#quick-start) · [Persona](#persona) · [Knowledge base](#knowledge-base-qa-bots) · [Channels](#channels) · [Costs](#control-your-costs) · [Deploy](#deploy)
+[🌐 Website](https://flatkey-ai.github.io/Mochi-ai-chatbot/) · [Quick start](#quick-start) · [Persona](#persona) · [Knowledge base](#knowledge-base-qa-bots) · [Channels](#channels) · [Costs](#control-your-costs) · [Deploy](#deploy)
 
 Powered by [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_header): **Official models. Better prices.**
 

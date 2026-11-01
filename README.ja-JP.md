@@ -14,7 +14,7 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md) · **日本語** · [Português](README.pt-BR.md)
 
-[クイックスタート](#quick-start) · [ペルソナ](#persona) · [ナレッジベース](#knowledge-base) · [チャネル](#channels) · [コスト](#costs) · [デプロイ](#deploy)
+[🌐 ウェブサイト](https://flatkey-ai.github.io/Mochi-ai-chatbot/ja/) · [クイックスタート](#quick-start) · [ペルソナ](#persona) · [ナレッジベース](#knowledge-base) · [チャネル](#channels) · [コスト](#costs) · [デプロイ](#deploy)
 
 Powered by [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_header_ja)：**公式モデルを、もっとお得に。**
 

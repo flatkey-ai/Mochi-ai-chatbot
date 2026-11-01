@@ -14,7 +14,7 @@
 
 [English](README.md) · **简体中文** · [日本語](README.ja-JP.md) · [Português](README.pt-BR.md)
 
-[快速开始](#quick-start) · [人设](#persona) · [知识库](#knowledge-base) · [渠道](#channels) · [成本](#costs) · [部署](#deploy)
+[🌐 官网](https://flatkey-ai.github.io/Mochi-ai-chatbot/zh/) · [快速开始](#quick-start) · [人设](#persona) · [知识库](#knowledge-base) · [渠道](#channels) · [成本](#costs) · [部署](#deploy)
 
 由 [Flatkey](https://flatkey.ai/?utm_source=mochi_bot&utm_medium=github&utm_campaign=mochi&utm_content=readme_header_zh) 驱动：**官方模型，更优价格。**
 
