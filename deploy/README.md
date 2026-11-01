@@ -26,16 +26,29 @@
 
 多架构：`linux/amd64`（Sealos / Railway / Render / VPS）+ `linux/arm64`（Apple Silicon、Oracle 免费额度、Hetzner CAX）。
 
-> **GHCR 包默认是私有的。** 一键部署要给陌生人用，先把它改成公开（点一次）：
-> <https://github.com/orgs/flatkey-ai/packages/container/mochi/settings> → **Change visibility → Public**
+> **GHCR 包默认是私有的，而 `flatkey-ai` 这个组织把 Public/Internal 可见性策略禁掉了**
+> （包设置里那句 *"Setting is disabled by organization administrators"*）。只有组织 **owner**
+> 能在 Organization settings → Packages 里放开；admin 也不行。
 >
-> 不想公开也行，用 pull secret：
+> 三条出路，任选其一：
+>
+> **① 用 Docker Hub（推荐，最省事）**：仓库 → Settings → Secrets and variables → Actions 加
+> `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN`（Docker Hub 的 access token），workflow 会自动多推一份
+> `docker.io/<user>/mochi:latest`，Docker Hub 的仓库默认就是公开可拉的。
+>
+> **② 推到自己账号的 GHCR**：同上加 `GHCR_PAT_USERNAME` + `GHCR_PAT`（PAT 勾 `write:packages`），
+> workflow 会多推 `ghcr.io/<user>/mochi:latest`。个人账号的包不受组织策略限制。
+>
+> **③ 保持私有 + pull secret**（适合只给自己用）：
 > ```bash
 > kubectl create secret docker-registry ghcr-pull \
 >   --docker-server=ghcr.io --docker-username=<你的 GitHub 用户名> \
 >   --docker-password=<带 read:packages 的 PAT>
 > ```
-> 然后取消 `deploy/sealos/mochi.yaml` 里 `imagePullSecrets` 两行的注释。
+> 然后取消 `deploy/sealos/mochi.yaml` 里 `imagePullSecrets` 两行的注释。Sealos 的「应用管理」表单里也有
+> 对应的镜像仓库账号密码字段。
+>
+> 不想折腾镜像仓库的话：**Zeabur / Railway / Render 直接从 GitHub 仓库构建**，完全不需要 registry。
 
 ## 能跑的地方（都支持 Dockerfile + 持久卷 + 常驻）
 
