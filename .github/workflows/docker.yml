@@ -7,14 +7,14 @@ name: docker
 #   manual                → same as a branch push
 #
 # GHCR first: ghcr.io/<owner>/mochi. Org-owned packages can be locked to private by an
-# organisation policy (flatkey-ai currently does this), in which case add ONE of these secrets
-# and the workflow also publishes somewhere publicly pullable:
+# organisation policy (flatkey-ai currently is), in which case adding ONE pair of secrets makes
+# the workflow also publish somewhere publicly pullable:
 #
 #   DOCKERHUB_USERNAME + DOCKERHUB_TOKEN   → docker.io/<user>/mochi:latest   (public by default)
 #   GHCR_PAT_USERNAME + GHCR_PAT           → ghcr.io/<user>/mochi:latest     (personal namespace)
 #
-# Those extra steps are skipped when the secrets are absent, so the workflow never fails for
-# lack of them.
+# Those steps are skipped when the secrets are absent. Note that the `secrets` context is not
+# allowed in `if:` — hence the env-based detection step below.
 
 on:
   push:
@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/mochi
+  GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/mochi
 
 jobs:
   build:
@@ -39,12 +39,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Which registries are configured
+        id: reg
+        env:
+          DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          DH_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          PU_USER: ${{ secrets.GHCR_PAT_USERNAME }}
+          PU_TOKEN: ${{ secrets.GHCR_PAT }}
+        run: |
+          list="$GHCR_IMAGE"
+          if [ -n "$DH_TOKEN" ] && [ -n "$DH_USER" ]; then
+            echo "dockerhub=true" >> "$GITHUB_OUTPUT"
+            list="$list"$'\n'"docker.io/$DH_USER/mochi"
+          fi
+          if [ -n "$PU_TOKEN" ] && [ -n "$PU_USER" ]; then
+            echo "personal=true" >> "$GITHUB_OUTPUT"
+            list="$list"$'\n'"ghcr.io/$PU_USER/mochi"
+          fi
+          { echo "images<<EOF"; echo "$list"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+          echo "publishing to:"; echo "$list"
+
       # amd64 covers Sealos / Railway / Render / Fly / any VPS; arm64 covers Apple Silicon and
       # ARM instances (Oracle free tier, Hetzner CAX).
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
+      - name: Log in to GHCR (org namespace)
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
@@ -52,15 +72,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub (optional)
-        if: github.event_name != 'pull_request' && secrets.DOCKERHUB_TOKEN != ''
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request' && steps.reg.outputs.dockerhub == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Log in to GHCR under a personal account (optional)
-        if: github.event_name != 'pull_request' && secrets.GHCR_PAT != ''
+      - name: Log in to GHCR (personal namespace)
+        if: github.event_name != 'pull_request' && steps.reg.outputs.personal == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -71,10 +91,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.IMAGE }}
-            ${{ secrets.DOCKERHUB_USERNAME != '' && format('docker.io/{0}/mochi', secrets.DOCKERHUB_USERNAME) || '' }}
-            ${{ secrets.GHCR_PAT_USERNAME != '' && format('ghcr.io/{0}/mochi', secrets.GHCR_PAT_USERNAME) || '' }}
+          images: ${{ steps.reg.outputs.images }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
